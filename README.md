@@ -40,7 +40,7 @@ All are required for the full PXE boot process. (Except DNS during SecureBoot se
 Run x-Install.ps1 to configure your machine with the default settings, this will DISABLE your firewall<br> 
 (Ensure to take appropriate precautions as needed)<br> 
 
-MOUNT YOUR WINPE ISO AND COPY ALL FILES TO C:\PXE\<br> 
+MOUNT YOUR WINPE ISO AND COPY ALL FILES TO C:\PXE\ <br> 
 (THIS HAS BEEN TESTED USING WIN10PESE AND WIN10XPE BOOTABLE ISO's)<br>
 
 Win10XPE can be found here: <a href="https://github.com/ChrisRfr/Win10XPE">https://github.com/ChrisRfr/Win10XPE</a>
