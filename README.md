@@ -4,13 +4,13 @@
  
 SecureBoot compatility can be enabled, but provides less NIC support(drivers), if you are having network issues try leaving SecureBoot Compatibility disabled<br>
 
-	TO ENABLE SECUREBOOT SUPPORT navigate to the following page: <a href="https://knowledge.broadcom.com/external/article/280113/updated-64bit-ipxeefi-ipxe-v1211+-binari.html">https://knowledge.broadcom.com/external/article/280113/updated-64bit-ipxeefi-ipxe-v1211+-binari.html</a><br>
-	Scroll to the bottom of the page, and click the 64bit_ipxe_efi.zip download button to get a signed copy of ipxe.efi (Thank you Broadcom)<br>
-	
-	Extract ipxe.efi from 64bit_ipxe_efi.zip AND RENAME IT TO ==> ipxe2.efi<br>
-	Assuming your PXEServer is located at C:\PXE, place the new ipxe2.efi in C:\PXE\NBP\
-	
-	If C:\PXE\NBP\ipxe2.efi exists SecureBoot compatibility mode will be enabled during launch<br>
+TO ENABLE SECUREBOOT SUPPORT navigate to the following page: <a href="https://knowledge.broadcom.com/external/article/280113/updated-64bit-ipxeefi-ipxe-v1211+-binari.html">https://knowledge.broadcom.com/external/article/280113/updated-64bit-ipxeefi-ipxe-v1211+-binari.html</a><br>
+Scroll to the bottom of the page, and click the 64bit_ipxe_efi.zip download button to get a signed copy of ipxe.efi (Thank you Broadcom)<br>
+
+Extract ipxe.efi from 64bit_ipxe_efi.zip AND RENAME IT TO ==> ipxe2.efi<br>
+Assuming your PXEServer is located at C:\PXE, place the new ipxe2.efi in C:\PXE\NBP\
+
+If C:\PXE\NBP\ipxe2.efi exists SecureBoot compatibility mode will be enabled during launch<br>
 
 The following components are included within the script:<br> 
 
