@@ -32,16 +32,6 @@ $Config = @{
 #
 $SecureBootCompatibility = (Test-Path -Path "$($Config.PXEServerRoot)\NBP\ipxe2.efi")
 
-# Ensure PXEServerRoot is set correctly
-$scriptName = Split-Path -Path $PSCommandPath -Leaf
-$mainPath = "$PXEServerRoot\$scriptName"
-$currentPath = $PSCommandPath
-if ($currentPath -ne $mainPath) {
-	Write-Host "PXEServer is running from the incorrect location!`n`nEnsure you are running from the PXEServerRoot at the top of the script.`n`nPress any key to continue..."
-	[void][System.Console]::ReadKey($true)
-    Exit
-}
-
 # Console/Log output
 function Write-Log {
 	param (
