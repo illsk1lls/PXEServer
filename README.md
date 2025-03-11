@@ -50,7 +50,7 @@ Run PXEServer.ps1 and network boot!<br>
 
 ------------------------------------<br> 
 
-To remove PXEServer settings and turn Windows Firewall back on run x-Uninstall.ps1<br> 
+Press Esc to Exit, and to remove PXEServer settings and turn Windows Firewall back on run x-Uninstall.ps1<br> 
 
 ------------------------------------<br> 
 
