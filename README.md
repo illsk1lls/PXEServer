@@ -35,7 +35,7 @@ The following components are included within the script:<br>
 3.) TFTP server<br>
 4.) HTTP file server<br> 
 
-All are required for the full PXE boot process.<br> 
+All are required for the full PXE boot process. (Except DNS during SecureBoot sessions) <br> 
 
 Run x-Install.ps1 to configure your machine with the default settings, this will DISABLE your firewall<br> 
 (Ensure to take appropriate precautions as needed)<br> 
