@@ -55,6 +55,6 @@ To remove PXEServer settings and turn Windows Firewall back on run x-Uninstall.p
 
 This is a work in progress and proof of concept.. please don't take it too seriously ;P<br> 
 The initial version can hang if the program is forcibly closed while the Http background job is running,<br>
-for now either reboot or close any running powershell processes to correct the issue, or be patient when closing the program.<br>
+for now either reboot or close any running powershell processes to correct the issue, or be patient when closing the program with the Esc key.<br>
 
 Stability updates and fixes coming soon. And any help is appreciated/welcomed.
