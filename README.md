@@ -6,7 +6,7 @@ Download a ZIP of the repository, and extract the contents to C:\PXE<br>
 
 File structure should look like:<br> 
 
-C:\PXE\NBP\ipxe2.efi <== Use the below method to get/rename this file for secureboot compatibility<br> 
+C:\PXE\NBP\ipxe2.efi <== This file is NOT included! (or needed) Use the below method to get/rename this file for secureboot compatibility<br> 
 C:\PXE\NBP\ipxe.efi<br> 
 C:\PXE\NBP\undionly.kpxe<br> 
 C:\PXE\NBP\undionly2.kpxe<br> 
