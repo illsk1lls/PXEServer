@@ -40,9 +40,10 @@ C:\PXE\LICENSE<br>
 Run x-Install.ps1 to configure your machine with the default settings, this will DISABLE your firewall<br> 
 (Ensure to take appropriate precautions as needed)<br> 
 
-MOUNT YOUR WINPE ISO AND COPY THE FILES TO C:\PXE<br> 
+MOUNT YOUR WINPE ISO AND COPY THE ALL FILES TO C:\PXE<br> 
 
-THIS HAS BEEN TESTED ON WIN10PESE AND WIN10XPE ISO's
+(THIS HAS BEEN TESTED USING WIN10PESE AND WIN10XPE BOOTABLE ISO's)
+Win10XPE can be found here: <a href="https://github.com/ChrisRfr/Win10XPE">https://github.com/ChrisRfr/Win10XPE</a>
 
 Run PXEServer.ps1 and network boot!<br> 
 
