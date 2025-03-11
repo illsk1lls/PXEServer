@@ -43,7 +43,8 @@ Run x-Install.ps1 to configure your machine with the default settings, this will
 MOUNT YOUR WINPE ISO AND COPY ALL FILES TO C:\PXE\ <br> 
 (THIS HAS BEEN TESTED USING WIN10PESE AND WIN10XPE BOOTABLE ISO's)<br>
 
-Win10XPE can be found here: <a href="https://github.com/ChrisRfr/Win10XPE">https://github.com/ChrisRfr/Win10XPE</a>
+Win10XPE can be found here: <a href="https://github.com/ChrisRfr/Win10XPE">https://github.com/ChrisRfr/Win10XPE</a> <br>
+(To make a successful vanilla build with this version, without having to make edits, disable: Apps>HD Tasks>AOMEI Partition Assistant, and, Apps>Network>Google Chrome) 
 
 Run PXEServer.ps1 and network boot!<br> 
 
