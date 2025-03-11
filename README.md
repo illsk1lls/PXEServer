@@ -42,6 +42,8 @@ Run x-Install.ps1 to configure your machine with the default settings, this will
 
 MOUNT YOUR WINPE ISO AND COPY THE FILES TO C:\PXE<br> 
 
+THIS HAS BEEN TESTED ON WIN10PESE AND WIN10XPE ISO's
+
 Run PXEServer.ps1 and network boot!<br> 
 
 ------------------------------------<br> 
@@ -51,3 +53,7 @@ To remove PXEServer settings and turn Windows Firewall back on run x-Uninstall.p
 ------------------------------------<br> 
 
 This is a work in progress and proof of concept.. please don't take it too seriously ;P<br> 
+The initial version can hang if the program is forcibly closed while the Http background job is running,<br>
+for now either reboot or close any running powershell processes to correct the issue, or be patient when closing the program.<br>
+
+Stability updates and fixes coming soon. And any help is appreciated/welcomed.
