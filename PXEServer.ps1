@@ -9,17 +9,17 @@ Add-Type -AssemblyName System.Net
 # Configuration
 $Config = @{
 	PXEServerRoot	= "C:\PXE"
-	PXEServerIP		= "169.168.2.1"
-	StartIP			= "169.168.2.2"
-	EndIP			= "169.168.2.254"
-	SubnetMask		= "255.255.255.0"
-	LogFile			= "pxeSession.log"
-	LeaseTime		= 300
+	PXEServerIP	= "169.168.2.1"
+	StartIP		= "169.168.2.2"
+	EndIP		= "169.168.2.254"
+	SubnetMask	= "255.255.255.0"
+	LogFile		= "pxeSession.log"
+	LeaseTime	= 300
 	MaxBlockSize	= 1468
 	BaseTimeoutMs	= 2000
 	OackTimeoutMs	= 5000
 	TftpMaxRetries	= 5
-	HttpPort		= 80
+	HttpPort	= 80
 }
 
 # SecureBoot compatility can be enabled, but provides less NIC support(drivers), if you are having network issues try leaving SecureBoot Compatibility disabled
@@ -726,9 +726,6 @@ $lastHttpCheck = [DateTime]::Now
 
 # Main loop
 Write-Log "[INFO] PXE Server starting [DHCP, ProxyDHCP, DNS, TFTP, HTTP]  [SecureBoot Support: $(if ($SecureBootCompatibility) { 'ON' } else { 'OFF' })]" -Color White
-if (-not $SecureBootCompatibility) {
-	Write-Log "[INFO] PXE Server starting [DHCP, ProxyDHCP, DNS, TFTP, HTTP]  [SecureBoot Support: $(if ($SecureBootCompatibility) { 'ON' } else { 'OFF' })]" -Color Yellow
-}
 Write-Log "[INFO] Server IP: $($Config.PXEServerIP), Subnet: $($Config.SubnetMask), Pool: $($Config.StartIP) - $($Config.EndIP)" -Color White
 Write-Log "[INFO] Press ESC to exit" -Color White
 
