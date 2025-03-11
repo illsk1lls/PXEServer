@@ -2,6 +2,22 @@
  
  BIOS/UEFI PXEBoot supported. Powered by iPXE
  
+Download a ZIP of the repository, and extract the contents to C:\PXE<br> 
+
+File structure should look like:<br> 
+
+C:\PXE\NBP\ipxe2.efi <== Use the below method to get/rename this file for secureboot compatibility<br> 
+C:\PXE\NBP\ipxe.efi<br> 
+C:\PXE\NBP\undionly.kpxe<br> 
+C:\PXE\NBP\undionly2.kpxe<br> 
+C:\PXE\NBP\wimboot<br> 
+C:\PXE\PXEServer.ps1<br> 
+C:\PXE\x-Install.ps1<br> 
+C:\PXE\x-Uninstall.ps1<br> 
+C:\PXE\PXEServer.ps1<br> 
+C:\PXE\README.md<br> 
+C:\PXE\LICENSE<br> 
+
 SecureBoot compatility can be enabled, but provides less NIC support(drivers), if you are having network issues try leaving SecureBoot Compatibility disabled<br>
 
 TO ENABLE SECUREBOOT SUPPORT navigate to the following page: <a href="https://knowledge.broadcom.com/external/article/280113/updated-64bit-ipxeefi-ipxe-v1211+-binari.html">https://knowledge.broadcom.com/external/article/280113/updated-64bit-ipxeefi-ipxe-v1211+-binari.html</a><br>
@@ -20,22 +36,6 @@ The following components are included within the script:<br>
 4.) HTTP file server<br> 
 
 All are required for the full PXE boot process.<br> 
-
-Download a ZIP of the repository, and extract the contents to C:\PXE<br> 
-
-File structure should look like:<br> 
-
-C:\PXE\NBP\ipxe2.efi <== Use the above method to get/rename this file for secureboot compatibility<br> 
-C:\PXE\NBP\ipxe.efi<br> 
-C:\PXE\NBP\undionly.kpxe<br> 
-C:\PXE\NBP\undionly2.kpxe<br> 
-C:\PXE\NBP\wimboot<br> 
-C:\PXE\PXEServer.ps1<br> 
-C:\PXE\x-Install.ps1<br> 
-C:\PXE\x-Uninstall.ps1<br> 
-C:\PXE\PXEServer.ps1<br> 
-C:\PXE\README.md<br> 
-C:\PXE\LICENSE<br> 
 
 Run x-Install.ps1 to configure your machine with the default settings, this will DISABLE your firewall<br> 
 (Ensure to take appropriate precautions as needed)<br> 
