@@ -6,7 +6,7 @@ Download a ZIP of the repository, and extract the contents to C:\PXE<br>
 
 File structure should look like:<br> 
 
-C:\PXE\NBP\ipxe2.efi <== This file is NOT included! (or needed) Use the below method to get/rename this file for secureboot compatibility<br> 
+C:\PXE\NBP\ipxe2.efi <== This file is NOT included! (or needed) Use the below method to get/rename this file for SecureBoot compatibility<br> 
 C:\PXE\NBP\ipxe.efi<br> 
 C:\PXE\NBP\undionly.kpxe<br> 
 C:\PXE\NBP\undionly2.kpxe<br> 
@@ -19,6 +19,8 @@ C:\PXE\README.md<br>
 C:\PXE\LICENSE<br> 
 
 SecureBoot compatibility can be enabled, but provides less NIC support(drivers), if you are having network issues try leaving SecureBoot Compatibility disabled<br>
+During testing, failing due to limited drivers would create an error along the lines of x/xxx/xxRtk.xxxx.cp somewhere on the screen, immediately after attempting DHCP.<br>
+In cases where boot is not completing disable SecureBoot on the client machines or switch into Install/Audit mode.
 
 TO ENABLE SECUREBOOT SUPPORT navigate to the following page: <a href="https://knowledge.broadcom.com/external/article/280113/updated-64bit-ipxeefi-ipxe-v1211+-binari.html">https://knowledge.broadcom.com/external/article/280113/updated-64bit-ipxeefi-ipxe-v1211+-binari.html</a><br>
 Scroll to the bottom of the page, and click the 64bit_ipxe_efi.zip download button to get a signed copy of ipxe.efi (Thank you Broadcom)<br>
