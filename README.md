@@ -1,4 +1,4 @@
-<h1 align="center">A Powershell PXEServer [DHCP,ProxyDHCP,DNS,TFTP,HTTP]</h1>
+<h1 align="center">A Powershell PXEServer [DHCP/ProxyDHCP/DNS/TFTP/HTTP]</h1>
  
  BIOS/UEFI PXEBoot supported. Powered by iPXE
  
