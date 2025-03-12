@@ -598,7 +598,7 @@ function Send-DNSResponse {
 
 # HTTP Server ScriptBlock
 $httpScriptBlock = {
-	param($Config, [bool]$IsUEFI = $false, [int]$MainPID)
+	param($Config, [bool]$IsUEFI = $false)
 
 	Add-Type -AssemblyName System.Net
 
@@ -609,7 +609,7 @@ $httpScriptBlock = {
 			Write-Host $timestamp -ForegroundColor $Color
 		}
 		try {
-			Add-Content -Path "$($Config['PXEServerRoot'])\logs\$($Config['LogFile'])" -Value $timestamp -ErrorAction Stop
+			Add-Content -Path "$($Config['PXEServerRoot'])\$($Config['LogFile'])" -Value $timestamp -ErrorAction Stop
 		}
 		catch {
 			Write-Host "[$(Get-Date -Format 'HH:mm:ss')] [ERROR] Failed to write to log file: $_" -Color Red
@@ -627,66 +627,44 @@ $httpScriptBlock = {
 		return
 	}
 
-	$lastPidCheck = [DateTime]::Now
-	$pidCheckInterval = 5  # Check every 5 seconds to make sure the main window is still open, close if not
-
 	try {
 		while ($true) {
-			# Check if the main script PID is still running
-			if (([DateTime]::Now - $lastPidCheck).TotalSeconds -ge $pidCheckInterval) {
-				if (-not (Get-Process -Id $MainPID -ErrorAction SilentlyContinue)) {
-					Write-Log "[INFO] Main script (PID: $MainPID) no longer running, shutting down HTTP server" -Color Yellow
-					break
+			Write-Log "[DEBUG] Waiting for HTTP request..." -Color Yellow
+			$context = $listener.GetContext()
+			$request = $context.Request
+			$response = $context.Response
+			$urlPath = $request.RawUrl.TrimStart('/')
+
+			Write-Log "[DEBUG] HTTP request received for: $urlPath from $($request.RemoteEndPoint)" -Color Green
+
+			$filePath = Join-Path $Config['PXEServerRoot'] $urlPath
+
+			if($filePath -like "*GetPxeScript*"){
+				try {
+					$filepath = "$($Config['PXEServerRoot'])\NBP\uefi.cfg"
 				}
-				$lastPidCheck = [DateTime]::Now
+				catch {
+					Write-Log "[ERROR] HTTP Server error: $_" -Color Red
+				}
 			}
 
-			# Non-blocking check for HTTP requests
-			if ($listener.IsListening) {
-				$contextTask = $listener.GetContextAsync()
-				$timeout = [TimeSpan]::FromSeconds(1)
-				if ($contextTask.Wait($timeout)) {
-					$context = $contextTask.Result
-					$request = $context.Request
-					$response = $context.Response
-					$urlPath = $request.RawUrl.TrimStart('/')
-
-					Write-Log "[DEBUG] HTTP request received for: $urlPath from $($request.RemoteEndPoint)" -Color Green
-
-					$filePath = Join-Path $Config['PXEServerRoot'] $urlPath
-
-					if ($filePath -like "*GetPxeScript*") {
-						try {
-							$filePath = "$($Config['PXEServerRoot'])\NBP\uefi.cfg"
-						}
-						catch {
-							Write-Log "[ERROR] HTTP Server error: $_" -Color Red
-						}
-					}
-
-					if (Test-Path $filePath) {
-						$fileBytes = [System.IO.File]::ReadAllBytes($filePath)
-						$response.ContentType = "application/octet-stream"
-						$response.ContentLength64 = $fileBytes.Length
-						$response.OutputStream.Write($fileBytes, 0, $fileBytes.Length)
-						Write-Log "[DEBUG] Served file: $filePath ($($fileBytes.Length) bytes) via HTTP" -Color Green
-					}
-					else {
-						$response.StatusCode = 404
-						$content = [System.Text.Encoding]::UTF8.GetBytes("404 - File not found: $urlPath")
-						$response.ContentLength64 = $content.Length
-						$response.OutputStream.Write($content, 0, $content.Length)
-						Write-Log "[ERROR] HTTP 404: File not found - $filePath" -Color Red
-					}
-
-					$response.Close()
-					Write-Log "[DEBUG] HTTP response closed for $urlPath" -Color Yellow
-				}
+			if (Test-Path $filePath) {
+				$fileBytes = [System.IO.File]::ReadAllBytes($filePath)
+				$response.ContentType = "application/octet-stream"
+				$response.ContentLength64 = $fileBytes.Length
+				$response.OutputStream.Write($fileBytes, 0, $fileBytes.Length)
+				Write-Log "[DEBUG] Served file: $filePath ($($fileBytes.Length) bytes) via HTTP" -Color Green
 			}
 			else {
-				Write-Log "[ERROR] HTTP listener stopped unexpectedly" -Color Red
-				break
+				$response.StatusCode = 404
+				$content = [System.Text.Encoding]::UTF8.GetBytes("404 - File not found: $urlPath")
+				$response.ContentLength64 = $content.Length
+				$response.OutputStream.Write($content, 0, $content.Length)
+				Write-Log "[ERROR] HTTP 404: File not found - $filePath" -Color Red
 			}
+
+			$response.Close()
+			Write-Log "[DEBUG] HTTP response closed for $urlPath" -Color Yellow
 		}
 	}
 	catch {
@@ -713,8 +691,8 @@ function Start-HttpJob {
 			Write-Log "[WARNING] Failed to remove old HTTP job: $_" -Color Yellow
 		}
 	}
-	$HttpJobRef.Value = Start-Job -ScriptBlock $httpScriptBlock -ArgumentList $Config, $SecureBootCompatibility, $PID
-	Write-Log "[DEBUG] HTTP job started with ID: $($HttpJobRef.Value.Id), monitoring Main PID: $PID" -Color Green
+	$HttpJobRef.Value = Start-Job -ScriptBlock $httpScriptBlock -ArgumentList $Config
+	Write-Log "[DEBUG] HTTP job started with ID: $($HttpJobRef.Value.Id)" -Color Green
 }
 
 # Background HTTP job
