@@ -1,6 +1,6 @@
 <h1 align="center">A Powershell PXEServer [DHCP/ProxyDHCP/DNS/TFTP/HTTP]</h1>
  
- BIOS/UEFI PXEBoot supported. Powered by iPXE (https://github.com/ipxe/ipxe)
+BIOS/UEFI PXEBoot supported.
  
 Download a ZIP of the repository, and extract the contents to C:\PXE<br> 
 
@@ -59,3 +59,5 @@ The initial version can hang if the program is forcibly closed while the Http ba
 for now either reboot or close any running powershell processes to correct the issue, or be patient when closing the program with the Esc key.<br>
 
 Stability updates and fixes coming soon. And any help is appreciated/welcomed.
+
+Powered by iPXE (https://github.com/ipxe/ipxe)
