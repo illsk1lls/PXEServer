@@ -116,7 +116,7 @@ try {
 	iwr "http://$($Config.PXEServerIP):$($Config.HttpPort)/shutdown" -ErrorAction SilentlyContinue | Out-Null
 }
 catch {
-	Write-Log "[DEBUG] HTTP Server IP/Port screened" -Color Red	
+	Write-Log "[DEBUG] HTTP Server IP/Port screened" -Color Red
 }
 # Initialize and create BCD
 try {
@@ -651,7 +651,7 @@ $httpScriptBlock = {
 			$filePath = Join-Path $Config['PXEServerRoot'] $urlPath
 
 			if($filePath -like "*shutdown"){
-				Write-Log "[DEBUG] Shutdown command recieved from main thread." -Color Green				
+				Write-Log "[DEBUG] Shutdown command recieved from main thread." -Color Green
 				$listener.Stop()
 				$listener.Close()
 				Exit
@@ -1022,8 +1022,8 @@ finally {
 	if ($httpJob) {
 		Write-Log "[INFO] Stopping HTTP job..." -Color White
 		try {
-            # Send shutdown command to HTTP listener using iwr
-            iwr "http://$($Config.PXEServerIP):$($Config.HttpPort)/shutdown" -ErrorAction SilentlyContinue
+			# Send shutdown command to HTTP listener using iwr
+			iwr "http://$($Config.PXEServerIP):$($Config.HttpPort)/shutdown" -ErrorAction SilentlyContinue
 			Write-Log "[INFO] HTTP job stopped and removed" -Color White
 		}
 		catch {
