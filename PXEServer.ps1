@@ -9,17 +9,17 @@ Add-Type -AssemblyName System.Net
 # Configuration
 $Config = @{
 	PXEServerRoot	= "C:\PXE"
-	PXEServerIP	= "169.168.2.1"
-	StartIP		= "169.168.2.2"
-	EndIP		= "169.168.2.254"
-	SubnetMask	= "255.255.255.0"
-	LogFile		= "pxeSession.log"
-	LeaseTime	= 300
+	PXEServerIP		= "169.168.2.1"
+	StartIP			= "169.168.2.2"
+	EndIP			= "169.168.2.254"
+	SubnetMask		= "255.255.255.0"
+	LogFile			= "pxeSession.log"
+	LeaseTime		= 300
 	MaxBlockSize	= 1468
 	BaseTimeoutMs	= 2000
 	OackTimeoutMs	= 5000
 	TftpMaxRetries	= 5
-	HttpPort	= 80
+	HttpPort		= 80
 }
 
 # SecureBoot compatility can be enabled, but provides less NIC support(drivers), if you are having network issues try leaving SecureBoot Compatibility disabled
