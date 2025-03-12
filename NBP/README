@@ -1,1 +1,2 @@
-Source located at https://github.com/illsk1lls/PXEServer-iPXE-Source
+included iPXE source located at: https://github.com/illsk1lls/PXEServer-iPXE-Source
+included wimboot source located at: https://github.com/ipxe/wimboot/releases/tag/v2.8.0
