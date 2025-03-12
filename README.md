@@ -1,6 +1,6 @@
 <h1 align="center">A Powershell PXEServer [DHCP/ProxyDHCP/DNS/TFTP/HTTP]</h1>
  
- BIOS/UEFI PXEBoot supported. Powered by iPXE
+ BIOS/UEFI PXEBoot supported. Powered by iPXE (https://github.com/ipxe/ipxe)
  
 Download a ZIP of the repository, and extract the contents to C:\PXE<br> 
 
