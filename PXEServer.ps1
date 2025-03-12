@@ -111,6 +111,13 @@ boot
 	$global:BIOSBootfileName = "undionly.kpxe"
 }
 
+# Make sure a HTTP server isnt already running from an improper shutdown
+try {
+	iwr "http://$($Config.PXEServerIP):$($Config.HttpPort)/shutdown" -ErrorAction SilentlyContinue | Out-Null
+}
+catch {
+	Write-Log "[DEBUG] HTTP Server IP/Port screened" -Color Red	
+}
 # Initialize and create BCD
 try {
 	$requiredFiles = @(
@@ -609,7 +616,11 @@ $httpScriptBlock = {
 			Write-Host $timestamp -ForegroundColor $Color
 		}
 		try {
-			Add-Content -Path "$($Config['PXEServerRoot'])\$($Config['LogFile'])" -Value $timestamp -ErrorAction Stop
+			$logFile = "$($Config.PXEServerRoot)\logs\$($Config.LogFile)"
+			if (-not (Test-Path $logFile)) {
+				New-Item -Path $logFile -ItemType File -Force | Out-Null
+			}
+			Add-Content -Path $logFile -Value $timestamp -ErrorAction Stop
 		}
 		catch {
 			Write-Host "[$(Get-Date -Format 'HH:mm:ss')] [ERROR] Failed to write to log file: $_" -Color Red
@@ -638,6 +649,22 @@ $httpScriptBlock = {
 			Write-Log "[DEBUG] HTTP request received for: $urlPath from $($request.RemoteEndPoint)" -Color Green
 
 			$filePath = Join-Path $Config['PXEServerRoot'] $urlPath
+
+			if($filePath -like "*shutdown"){
+				Write-Log "[DEBUG] Shutdown command recieved from main thread." -Color Green				
+				$listener.Stop()
+				$listener.Close()
+				Exit
+			}
+
+			if($filePath -like "*GetPxeScript*"){
+				try {
+					$filepath = "$($Config['PXEServerRoot'])\NBP\uefi.cfg"
+				}
+				catch {
+					Write-Log "[ERROR] HTTP Server error: $_" -Color Red
+				}
+			}
 
 			if($filePath -like "*GetPxeScript*"){
 				try {
@@ -995,9 +1022,8 @@ finally {
 	if ($httpJob) {
 		Write-Log "[INFO] Stopping HTTP job..." -Color White
 		try {
-			Stop-Job -Job $httpJob -ErrorAction Stop
-			Start-Sleep -Seconds 2
-			Remove-Job -Job $httpJob -ErrorAction Stop
+            # Send shutdown command to HTTP listener using iwr
+            iwr "http://$($Config.PXEServerIP):$($Config.HttpPort)/shutdown" -ErrorAction SilentlyContinue
 			Write-Log "[INFO] HTTP job stopped and removed" -Color White
 		}
 		catch {
