@@ -14,7 +14,6 @@ C:\PXE\NBP\wimboot<br>
 C:\PXE\PXEServer.ps1<br> 
 C:\PXE\x-Install.ps1<br> 
 C:\PXE\x-Uninstall.ps1<br> 
-C:\PXE\PXEServer.ps1<br> 
 C:\PXE\README.md<br> 
 C:\PXE\LICENSE<br> 
 
