@@ -4,6 +4,16 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 	Exit
 }
 
+# Allow Single Instance Only
+$AppId = 'PXEServer' # Dont do this ;P, use a GUID instead
+$singleInstance = $false
+$script:SingleInstanceEvent = New-Object Threading.EventWaitHandle $true,([Threading.EventResetMode]::ManualReset),"Global\$AppId",([ref] $singleInstance)
+if (-not $singleInstance){
+	$shell = New-Object -ComObject Wscript.Shell
+	$shell.Popup("$AppId is already running!",0,'ERROR:',0x0) | Out-Null
+	Exit
+}
+
 Add-Type -AssemblyName System.Net
 
 # Configuration
@@ -40,18 +50,11 @@ function notReady {
 
 # Check if pre-reqs are ready
 $route = Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Select-Object -First 1
-$global:gateway = $route.NextHop
-$gatewayParts = $global:gateway -split '\.'
+$gateway = $route.NextHop
+$gatewayParts = $gateway -split '\.'
 $gatewayPrefix = "$($gatewayParts[0]).$($gatewayParts[1]).$($gatewayParts[2])."
-$internalIP = (Get-NetIPAddress | Where-Object {
-    $_.AddressFamily -eq 'IPv4' -and
-    $_.InterfaceAlias -ne 'Loopback Pseudo-Interface 1' -and
-    $_.IPAddress -like "$gatewayPrefix*"
-}).IPAddress
-$adapter = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
-    $_.InterfaceAlias -match 'Ethernet|Wi-Fi' -and
-    $_.IPAddress -like "$gatewayPrefix*"
-}).InterfaceAlias
+$internalIP = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.InterfaceAlias -ne 'Loopback Pseudo-Interface 1' -and $_.IPAddress -like "$gatewayPrefix*" }).IPAddress
+$adapter = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -match 'Ethernet|Wi-Fi' -and $_.IPAddress -like "$gatewayPrefix*" }).InterfaceAlias
 if(!(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -eq $adapter -and $_.IPAddress -eq $($Config.PXEServerIP) })) {
 	notReady
 }
@@ -61,7 +64,7 @@ if((Get-NetFirewallProfile -Profile (Get-NetConnectionProfile).NetworkCategory).
 $ipConfig = Get-NetIPConfiguration -InterfaceAlias $adapter
 $ipAddress = Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4
 $ips = @((Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4).IPAddress)
-if (!($ips.Count -gt 1)) {
+if ($ips.Count -le 1) {
 	notReady
 }
 
