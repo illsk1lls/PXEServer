@@ -1,6 +1,6 @@
 <h1 align="center">A Powershell PXEServer [DHCP/ProxyDHCP/DNS/TFTP/HTTP]</h1>
  
- BIOS/UEFI PXEBoot supported. Powered by iPXE (https://github.com/ipxe/ipxe)
+BIOS/UEFI PXEBoot supported.
  
 Download a ZIP of the repository, and extract the contents to C:\PXE<br> 
 
@@ -14,7 +14,6 @@ C:\PXE\NBP\wimboot<br>
 C:\PXE\PXEServer.ps1<br> 
 C:\PXE\x-Install.ps1<br> 
 C:\PXE\x-Uninstall.ps1<br> 
-C:\PXE\PXEServer.ps1<br> 
 C:\PXE\README.md<br> 
 C:\PXE\LICENSE<br> 
 
@@ -55,7 +54,9 @@ Press Esc to Exit, and to remove PXEServer settings and turn Windows Firewall ba
 ------------------------------------<br> 
 
 This is a work in progress and proof of concept.. please don't take it too seriously ;P<br> 
-The initial version can hang if the program is forcibly closed while the Http background job is running,<br>
-for now either reboot or close any running powershell processes to correct the issue, or be patient when closing the program with the Esc key.<br>
+NOTE: If the program is forcibly closed while the Http background job is running, the background process will remain open,<br>
+for now either restart the server and close it properly, or manually close the background powershell processes using task manager<br>
 
 Stability updates and fixes coming soon. And any help is appreciated/welcomed.
+
+Powered by iPXE (https://github.com/ipxe/ipxe)
