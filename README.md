@@ -54,8 +54,8 @@ Press Esc to Exit, and to remove PXEServer settings and turn Windows Firewall ba
 ------------------------------------<br> 
 
 This is a work in progress and proof of concept.. please don't take it too seriously ;P<br> 
-The initial version can hang if the program is forcibly closed while the Http background job is running,<br>
-for now either reboot or close any running powershell processes to correct the issue, or be patient when closing the program with the Esc key.<br>
+NOTE: If the program is forcibly closed while the Http background job is running, the process can will remain open, for now either<br>
+restart the server and close it properly, or close any running background powershell processes with task manager<br>
 
 Stability updates and fixes coming soon. And any help is appreciated/welcomed.
 
