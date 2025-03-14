@@ -40,6 +40,6 @@ Remove-NetIPAddress -InterfaceAlias "$adapter" -IPAddress $PXEServerIP -Confirm:
 netsh interface ipv4 set interface "$adapter" dhcpstaticipcoexistence=disabled | Out-Null
 
 # ENABLE Windows Firewall
-Set-NetFirewallProfile -Profile Domain,Private,Public -Enabled True
+Set-NetFirewallProfile -Profile ((Get-NetConnectionProfile).NetworkCategory) -Enabled True
 Write-Host "Firewall Enabled and PXEServerIP removed`n`nPress any key to continue..."
 [void][System.Console]::ReadKey($true)

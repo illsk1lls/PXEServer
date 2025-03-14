@@ -32,6 +32,39 @@ $Config = @{
 #
 $SecureBootCompatibility = (Test-Path -Path "$($Config.PXEServerRoot)\NBP\ipxe2.efi")
 
+function notReady {
+    write-host "The system is not setup correctly for the PXEServer!`n`nRun x-Install.ps1 to prepare the system.`n`nPress any key to exit..."
+	[void][System.Console]::ReadKey($true)
+	Exit	
+}
+
+# Check if pre-reqs are ready
+$route = Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Select-Object -First 1
+$global:gateway = $route.NextHop
+$gatewayParts = $global:gateway -split '\.'
+$gatewayPrefix = "$($gatewayParts[0]).$($gatewayParts[1]).$($gatewayParts[2])."
+$internalIP = (Get-NetIPAddress | Where-Object {
+    $_.AddressFamily -eq 'IPv4' -and
+    $_.InterfaceAlias -ne 'Loopback Pseudo-Interface 1' -and
+    $_.IPAddress -like "$gatewayPrefix*"
+}).IPAddress
+$adapter = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
+    $_.InterfaceAlias -match 'Ethernet|Wi-Fi' -and
+    $_.IPAddress -like "$gatewayPrefix*"
+}).InterfaceAlias
+if(!(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -eq $adapter -and $_.IPAddress -eq $($Config.PXEServerIP) })) {
+	notReady
+}
+if((Get-NetFirewallProfile -Profile (Get-NetConnectionProfile).NetworkCategory).Enabled){
+	notReady
+}
+$ipConfig = Get-NetIPConfiguration -InterfaceAlias $adapter
+$ipAddress = Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4
+$ips = @((Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4).IPAddress)
+if (!($ips.Count -gt 1)) {
+	notReady
+}
+
 # Console/Log output
 function Write-Log {
 	param (

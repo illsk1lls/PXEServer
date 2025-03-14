@@ -15,8 +15,6 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 }
 # THIS MUST MATCH WHAT YOU USE IN PXEServer.ps1 (default 169.168.2.1)
 $PXEServerIP = "169.168.2.1"
-
-# Find gateway
 $route = Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Select-Object -First 1
 $global:gateway = $route.NextHop
 $gatewayParts = $global:gateway -split '\.'
@@ -27,19 +25,19 @@ $internalIP = (Get-NetIPAddress | Where-Object {
 	$_.IPAddress -like "$gatewayPrefix*"
 }).IPAddress
 
-# Get current adapter name
 $adapter = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
 	$_.InterfaceAlias -match 'Ethernet|Wi-Fi' -and
 	$_.IPAddress -like "$gatewayPrefix*"
 }).InterfaceAlias
+Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -eq $adapter -and $_.IPAddress -eq $PXEServerIP } 
 
 # DISABLE Windows Firewall
-Set-NetFirewallProfile -Profile Domain,Private,Public -Enabled False
+Set-NetFirewallProfile -Profile ((Get-NetConnectionProfile).NetworkCategory) -Enabled False
 
 # Enable DHCP/Static co-exististence on adapter
 netsh interface ipv4 set interface "$adapter" dhcpstaticipcoexistence=enabled | Out-Null
 
 # Add PXEServer static IP to adapter
 netsh interface ipv4 add address "$adapter" $PXEServerIP | Out-Null
-Write-Host "Firewall is DISABLED on all profiles`nPXEServer static set to $PXEServerIP`n`(match this in the main script - if you didn't change anything you are ready to go as-is`)`n`nPress any key to continue..."
+Write-Host "Windows Firewall is DISABLED on the current profile`nPXEServer static set to $PXEServerIP`n`(match this in the main script - if you didn't change anything you are ready to go as-is`)`n`nPress any key to continue..."
 [void][System.Console]::ReadKey($true)
