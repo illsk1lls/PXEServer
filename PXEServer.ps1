@@ -854,7 +854,7 @@ if(!($Config.DebugMode)){
 # Main loop
 Write-Log "[INFO] PXE Server Running [DHCP, ProxyDHCP, DNS, TFTP, HTTP] [SecureBoot Support: $(if ($SecureBootCompatibility) { 'ON' } else { 'OFF' })]" -Color White
 Write-Log "[INFO] Server IP: $($Config.PXEServerIP), Subnet: $($Config.SubnetMask), Client Pool: $($serverSubnet[0..2] -join '.').$($Config.StartIP) - $($Config.EndIP)" -Color White
-Write-Log "[INFO] Press ESC to exit" -Color White
+Write-Log "[INFO] Waiting for clients to connect - Press ESC to exit" -Color White
 
 try {
 	while ($true) {
