@@ -143,7 +143,7 @@ function prepareNetworkSettings {
 	}
 	Write-Log "[INFO] Configuring Network Adapter" -Color White
 	netsh interface ipv4 set interface "$adapter" dhcpstaticipcoexistence=enabled | Out-Null
-	netsh interface ipv4 add address "$adapter" $Config.PXEServerIP | Out-Null
+	netsh interface ipv4 add address "$adapter" $Config.PXEServerIP $Config.SubnetMask | Out-Null
 }
 
 Write-Log "[INFO] Initializing..." -Color White
@@ -161,7 +161,6 @@ if(!(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -eq
 if((Get-NetFirewallProfile -Profile (Get-NetConnectionProfile).NetworkCategory).Enabled){
 	$needsSetup++
 }
-$ipConfig = Get-NetIPConfiguration -InterfaceAlias $adapter
 $ipAddress = Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4
 $ips = @((Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4).IPAddress)
 if ($ips.Count -le 1) {
@@ -179,6 +178,7 @@ try {
 	Set-Variable ProgressPreference SilentlyContinue
 	iwr "http://$($Config.PXEServerIP):$($Config.HttpPort)/shutdown" -ErrorAction SilentlyContinue | Out-Null
 	Set-Variable ProgressPreference Continue
+	Write-Log "[DEBUG] HTTP Server, stale process found and closed" -Color Yellow
 }
 catch {
 	Write-Log "[DEBUG] HTTP Server IP/Port screened" -Color Yellow
@@ -291,8 +291,14 @@ catch {
 $ipPool = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
 $startBytes = [System.Net.IPAddress]::Parse($Config.StartIP).GetAddressBytes()
 $endBytes = [System.Net.IPAddress]::Parse($Config.EndIP).GetAddressBytes()
-for ($i = $startBytes[3]; $i -le $endBytes[3]; $i++) {
-	$ipPool.Add("169.168.2.$i")
+if ($startBytes[0] -eq $endBytes[0] -and $startBytes[1] -eq $endBytes[1] -and $startBytes[2] -eq $endBytes[2]) {
+	for ($i = $startBytes[3]; $i -le $endBytes[3]; $i++) {
+		$ipPool.Add("$($startBytes[0..2] -join '.').$i")
+	}
+} else {
+	Write-Log "[ERROR] IP Pool must be on the same subnet as PXEServer, bad config!`n`nPress any key to exit..." -Color Red
+	[void][System.Console]::ReadKey($true)
+	exit	
 }
 $ipAssignments = [System.Collections.Concurrent.ConcurrentDictionary[string,string]]::new()
 $processedTransactionIDs = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
@@ -797,7 +803,7 @@ function Start-HttpJob {
 	Write-Log "[DEBUG] HTTP job started with ID: $($HttpJobRef.Value.Id)" -Color Yellow
 }
 
-# Background HTTP job
+# Initialize background HTTP job
 $httpJob = $null
 Start-HttpJob -HttpJobRef ([ref]$httpJob)
 $clientOptions = @{}
