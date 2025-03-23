@@ -19,16 +19,12 @@ Add-Type -AssemblyName System.Net
 # Configuration
 $Config = @{
 	PXEServerRoot   = "C:\PXE"
-	PXEServerIP     = "169.168.2.1"
-	StartIP         = "169.168.2.2"
-	EndIP           = "169.168.2.254"
-	SubnetMask      = "255.255.255.0"
 	LogFile         = "pxeSession.log"
+	PXEServerIP     = "169.168.2.1"
+	SubnetMask      = "255.255.255.0"
+	StartIP         = 2
+	EndIP           = 254
 	LeaseTime       = 300
-	MaxBlockSize    = 1468
-	BaseTimeoutMs   = 2000
-	OackTimeoutMs   = 5000
-	TftpMaxRetries  = 5
 	HttpPort        = 80
 	DebugMode       = $false
 }
@@ -69,6 +65,8 @@ function Write-Log {
 	}
 }
 
+Write-Log "[INFO] Initializing..." -Color White
+
 # Log file management
 $logDir = "$($Config.PXEServerRoot)\logs"
 $logBase = $Config.LogFile
@@ -95,7 +93,8 @@ try {
 	Write-Log "[DEBUG] Started fresh log file at $logFile" -Color Yellow
 }
 catch {
-	Write-Host "[ERROR] Log file management failed: $_`n`nPress any key to exit..." -ForegroundColor Red
+	Write-Host "[ERROR] Log file management failed: $_" -ForegroundColor Red
+	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 	[void][System.Console]::ReadKey($true)
 	exit
 }
@@ -119,7 +118,8 @@ boot
 		Write-Log "[DEBUG] Generated boot data at $($Config.PXEServerRoot) with $($Config.PXEServerIP):4433" -Color Yellow
 	}
 	catch {
-		Write-Log "[ERROR] Failed to generate boot data (uefi.cfg): $_`n`nPress any key to exit..." -Color Red
+		Write-Log "[ERROR] Failed to generate boot data (uefi.cfg): $_" -Color Red
+		Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 		[void][System.Console]::ReadKey($true)
 		exit
 	}
@@ -138,15 +138,14 @@ function prepareNetworkSettings {
 		New-NetFirewallRule -DisplayName "PXEServer Services DNS/DHCP/TFTP/pDHCP" -Direction Inbound -Protocol UDP -LocalPort $udpPorts -Action Allow -Profile "$currentNetProfile" -Enabled True | Out-Null
 		Write-Log "[DEBUG] Firewall rule created: PXEServer Services DNS/DHCP/TFTP/pDHCP (UDP/53,67,69,4011)" -Color Yellow
 	} catch {
-		Write-Log "[ERROR] Failed to create firewall rules: $_`n`nPress any key to exit..." -Color Red
+		Write-Log "[ERROR] Failed to create firewall rules: $_" -Color Red
+		Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 		[void][System.Console]::ReadKey($true)
 	}
 	Write-Log "[INFO] Configuring Network Adapter" -Color White
 	netsh interface ipv4 set interface "$adapter" dhcpstaticipcoexistence=enabled | Out-Null
 	netsh interface ipv4 add address "$adapter" $Config.PXEServerIP $Config.SubnetMask | Out-Null
 }
-
-Write-Log "[INFO] Initializing..." -Color White
 
 # Check network settings, adjust if needed
 $route = Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Select-Object -First 1
@@ -196,12 +195,13 @@ try {
 	)
 	foreach ($file in $requiredFiles) {
 		if (-not (Test-Path $file)) {
-			Write-Log "[INFO] Required file not found: $file." -Color Red
+			Write-Log "[ERROR] Required file not found: $file." -Color Red
 			$missingfiles++
 		}
 	}
 	if($missingfiles){
-		Write-Log "[INFO] Required files missing! Please ensure all files are in place.`n`nPress any key to exit..." -Color White
+		Write-Log "[ERROR] Required files missing! Please ensure all files are in place." -Color Red
+		Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 		[void][System.Console]::ReadKey($true)
 		Exit
 	}
@@ -244,7 +244,8 @@ try {
 	Write-Log "[DEBUG] BCD store created successfully at $TargetBCD" -Color Yellow
 }
 catch {
-	Write-Log "[ERROR] BCD creation failed: $_`n`nPress any key to exit..." -Color Red
+	Write-Log "[ERROR] BCD creation failed: $_" -Color Red
+	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 	[void][System.Console]::ReadKey($true)
 	exit
 }
@@ -282,33 +283,54 @@ try {
 	Write-Log "[DEBUG] DNS server initialized on $($Config.PXEServerIP):53" -Color Yellow
 }
 catch {
-	Write-Log "[ERROR] Failed to initialize sockets: $_`n`nPress any key to exit..." -Color Red
+	Write-Log "[ERROR] Failed to initialize sockets: $_" -Color Red
+	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 	[void][System.Console]::ReadKey($true)
 	exit
 }
 
-# Generate IP pool
-$ipPool = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
-$startBytes = [System.Net.IPAddress]::Parse($Config.StartIP).GetAddressBytes()
-$endBytes = [System.Net.IPAddress]::Parse($Config.EndIP).GetAddressBytes()
-if ($startBytes[0] -eq $endBytes[0] -and $startBytes[1] -eq $endBytes[1] -and $startBytes[2] -eq $endBytes[2]) {
-	for ($i = $startBytes[3]; $i -le $endBytes[3]; $i++) {
-		$ipPool.Add("$($startBytes[0..2] -join '.').$i")
-	}
-} else {
-	Write-Log "[ERROR] IP Pool must be on the same subnet as PXEServer, bad config!`n`nPress any key to exit..." -Color Red
+# Generate client IP pool
+if (-not ([int]::TryParse($Config.StartIP, [ref]$null)) -or -not ([int]::TryParse($Config.EndIP, [ref]$null))) {
+	Write-Log "[ERROR] StartIP and EndIP must be integers, check config!" -Color Red
+	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 	[void][System.Console]::ReadKey($true)
-	exit	
+    Exit
+}
+$startIPcheck = [int]$Config.StartIP
+$endIPcheck = [int]$Config.EndIP
+if ($startIPcheck -lt 0 -or $startIPcheck -gt 254 -or $endIPcheck -lt 0 -or $endIPcheck -gt 254) {
+	Write-Log "[ERROR] StartIP and EndIP must be between 0 and 254, check config!" -Color Red
+	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
+	[void][System.Console]::ReadKey($true)
+    Exit
+}
+if ($startIPcheck -gt $endIPcheck) {
+    $Config.StartIP, $Config.EndIP = @($Config.EndIP, $Config.StartIP)
+    $startIPcheck = [int]$Config.StartIP
+    $endIPcheck = [int]$Config.EndIP
+}
+$serverSubnet = [System.Net.IPAddress]::Parse($Config.PXEServerIP).GetAddressBytes()
+$serverFourthOctet = [int]$serverSubnet[3]
+if ($serverFourthOctet -ge $startIPcheck -and $serverFourthOctet -le $endIPcheck) {
+    Write-Log "[ERROR] PXEServerIP ($($Config.PXEServerIP)) cannot be within the client IP range ($($Config.StartIP) to $($Config.EndIP)), check config!" -Color Red
+	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
+    [void][System.Console]::ReadKey($true)
+    Exit
+}
+$ipPool = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
+for ($i = $Config.StartIP; $i -le $Config.EndIP; $i++) {
+	$ipPool.Add("$($serverSubnet[0..2] -join '.').$i")
 }
 $ipAssignments = [System.Collections.Concurrent.ConcurrentDictionary[string,string]]::new()
 $processedTransactionIDs = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
 
+# TFTP
 function Send-TFTPFile {
 	param (
 		[System.Net.IPEndPoint]$ClientEndpoint,
 		[string]$FilePath,
 		[int]$BlockSize = 512,
-		[int]$TimeoutMs = $Config.BaseTimeoutMs
+		[int]$TimeoutMs = 2000
 	)
 	try {
 		if (-not $FilePath -or -not (Test-Path $FilePath)) {
@@ -327,7 +349,7 @@ function Send-TFTPFile {
 		$fileStream = [System.IO.File]::OpenRead($FilePath)
 		$blockNumber = 1
 		$buffer = New-Object byte[] $BlockSize
-		$maxRetries = $Config.TftpMaxRetries
+		$maxRetries = 5
 		$timeout = $TimeoutMs
 
 		Write-Log "[DEBUG] Starting TFTP transfer to $($ClientEndpoint.Address):$($ClientEndpoint.Port) for $FilePath" -Color Yellow
@@ -341,8 +363,9 @@ function Send-TFTPFile {
 
 			while ($retryCount -lt $maxRetries -and -not $ackReceived) {
 				$tftpSocket.Send($dataPacket, $dataPacket.Length, $ClientEndpoint) | Out-Null
-				# Write-Log "[DEBUG] Sent block $blockNumber ($bytesRead bytes) to $($ClientEndpoint.Address):$($ClientEndpoint.Port), Retry $retryCount" -Color Yellow
-
+				if ($Config.DebugMode) { 
+					Write-Log "[DEBUG] Sent block $blockNumber ($bytesRead bytes) to $($ClientEndpoint.Address):$($ClientEndpoint.Port), Retry $retryCount" -Color Yellow
+				}
 				$tftpSocket.Client.ReceiveTimeout = $timeout
 				$ackResult = Receive-TFTPPacket
 				$ackBytes = $ackResult.Data
@@ -424,6 +447,7 @@ function Receive-TFTPPacket {
 	}
 }
 
+# DHCP/ProxyDHCP
 function Send-ProxyDHCPOffer {
 	param (
 		[System.Net.IPEndPoint]$ClientEndpoint,
@@ -566,6 +590,7 @@ function Send-DHCPAck {
 	}
 }
 
+# DNS
 function Handle-DNSQuery {
 	param ([System.Net.IPEndPoint]$ClientEndpoint, [byte[]]$Query)
 
@@ -815,8 +840,8 @@ if(!($Config.DebugMode)){
 }
 
 # Main loop
-Write-Log "[INFO] PXE Server Running [DHCP, ProxyDHCP, DNS, TFTP, HTTP]  [SecureBoot Support: $(if ($SecureBootCompatibility) { 'ON' } else { 'OFF' })]" -Color White
-Write-Log "[INFO] Server IP: $($Config.PXEServerIP), Subnet: $($Config.SubnetMask), Pool: $($Config.StartIP) - $($Config.EndIP)" -Color White
+Write-Log "[INFO] PXE Server Running [DHCP, ProxyDHCP, DNS, TFTP, HTTP] [SecureBoot Support: $(if ($SecureBootCompatibility) { 'ON' } else { 'OFF' })]" -Color White
+Write-Log "[INFO] Server IP: $($Config.PXEServerIP), Subnet: $($Config.SubnetMask), Client Pool: $($serverSubnet[0..2] -join '.').$($Config.StartIP) - $($Config.EndIP)" -Color White
 Write-Log "[INFO] Press ESC to exit" -Color White
 
 try {
@@ -871,7 +896,9 @@ try {
 				Write-Log "[DEBUG] Received DHCP packet from $($clientEndpoint.Address):$($clientEndpoint.Port), length: $($packet.Length)" -Color Yellow
 				$packetHex = [BitConverter]::ToString($packet).Replace('-', ' ')
 				Write-Log "[DEBUG] DHCP Packet XID: $([BitConverter]::ToString($packet[4..7]).Replace('-',''))" -Color Yellow
-				# Write-Log "[DEBUG] DHCP Packet Content (Hex): $packetHex" -Color Cyan
+				if ($Config.DebugMode) { 
+					Write-Log "[DEBUG] DHCP Packet Content (Hex): $packetHex" -Color Cyan
+				}
 				if ($packet.Length -ge 240 -and $packet[0] -eq 1) {
 					$mac = [BitConverter]::ToString($packet[28..33]).Replace('-','')
 					$xid = $packet[4..7]
@@ -1000,8 +1027,8 @@ try {
 						}
 
 						$blockSize = 512
-						$timeoutMs = $Config.BaseTimeoutMs
-						if ($options["blksize"]) { $blockSize = [Math]::Min([int]$options["blksize"], $Config.MaxBlockSize) }
+						$timeoutMs = 2000
+						if ($options["blksize"]) { $blockSize = [Math]::Min([int]$options["blksize"], 1468) }
 						if ($options["timeout"]) { $timeoutMs = [int]$options["timeout"] * 1000 }
 						if ($options["tsize"] -and $options["tsize"] -eq "0") {
 							$fileSize = (Get-Item $fileToServe).Length.ToString()
@@ -1052,7 +1079,9 @@ try {
 				Write-Log "[DEBUG] Received ProxyDHCP packet from $($clientEndpoint.Address):$($clientEndpoint.Port), length: $($packet.Length)" -Color Yellow
 				$packetHex = [BitConverter]::ToString($packet).Replace('-', ' ')
 				Write-Log "[DEBUG] ProxyDHCP Packet XID: $([BitConverter]::ToString($packet[4..7]).Replace('-',''))" -Color Yellow
-				# Write-Log "[DEBUG] ProxyDHCP Packet Content (Hex): $packetHex" -Color Cyan
+				if ($Config.DebugMode) { 
+					Write-Log "[DEBUG] ProxyDHCP Packet Content (Hex): $packetHex" -Color Cyan
+				}
 				if ($packet.Length -ge 240 -and $packet[0] -eq 1) {
 					$mac = $packet[28..33]
 					$xid = $packet[4..7]
@@ -1151,6 +1180,7 @@ finally {
     } catch {
         Write-Log "[ERROR] Failed to remove firewall rules: $_" -Color Yellow
     }
-	Write-Log "[INFO] Shutdown complete`n`nPress any key to exit..." -Color White
+	Write-Log "[INFO] Shutdown complete" -Color White
+	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 	[void][System.Console]::ReadKey($true)
 }
