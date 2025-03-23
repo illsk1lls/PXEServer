@@ -1,4 +1,4 @@
-# Admin rights are required to create BCD and other boot configuration files, script will exit if you are not running as Admin or UAC prompt is declined
+# Admin rights are required to create BCD and firewall rules, the script will exit if you are not running as Admin or UAC prompt is declined
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
 	Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
 	Exit
@@ -95,36 +95,9 @@ try {
 	Write-Log "[DEBUG] Started fresh log file at $logFile" -Color Yellow
 }
 catch {
-	Write-Host "[ERROR] Log file management failed: $_" -ForegroundColor Red
+	Write-Host "[ERROR] Log file management failed: $_`n`nPress any key to exit..." -ForegroundColor Red
+	[void][System.Console]::ReadKey($true)
 	exit
-}
-
-function prepareNetworkSettings {
-	Set-NetFirewallProfile -Profile ((Get-NetConnectionProfile).NetworkCategory) -Enabled False | Out-Null
-	netsh interface ipv4 set interface "$adapter" dhcpstaticipcoexistence=enabled | Out-Null
-	netsh interface ipv4 add address "$adapter" $Config.PXEServerIP | Out-Null
-}
-
-Write-Log "[INFO] Getting Ready..." -Color White
-
-# Check network settings, adjust if needed
-$route = Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Select-Object -First 1
-$gateway = $route.NextHop
-$gatewayParts = $gateway -split '\.'
-$gatewayPrefix = "$($gatewayParts[0]).$($gatewayParts[1]).$($gatewayParts[2])."
-$internalIP = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.InterfaceAlias -ne 'Loopback Pseudo-Interface 1' -and $_.IPAddress -like "$gatewayPrefix*" }).IPAddress
-$adapter = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -match 'Ethernet|Wi-Fi' -and $_.IPAddress -like "$gatewayPrefix*" }).InterfaceAlias
-if(!(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -eq $adapter -and $_.IPAddress -eq $($Config.PXEServerIP) })) {
-	prepareNetworkSettings
-}
-if((Get-NetFirewallProfile -Profile (Get-NetConnectionProfile).NetworkCategory).Enabled){
-	prepareNetworkSettings
-}
-$ipConfig = Get-NetIPConfiguration -InterfaceAlias $adapter
-$ipAddress = Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4
-$ips = @((Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4).IPAddress)
-if ($ips.Count -le 1) {
-	prepareNetworkSettings
 }
 
 # If SecureBootCompatibility is on these settings are mandatory
@@ -146,7 +119,8 @@ boot
 		Write-Log "[DEBUG] Generated boot data at $($Config.PXEServerRoot) with $($Config.PXEServerIP):4433" -Color Yellow
 	}
 	catch {
-		Write-Log "[ERROR] Failed to generate boot data (uefi.cfg): $_" -Color Red
+		Write-Log "[ERROR] Failed to generate boot data (uefi.cfg): $_`n`nPress any key to exit..." -Color Red
+		[void][System.Console]::ReadKey($true)
 		exit
 	}
 } else {
@@ -154,9 +128,57 @@ boot
 	$global:BIOSBootfileName = "undionly.kpxe"
 }
 
+function prepareNetworkSettings {
+	$currentNetProfile = (Get-NetConnectionProfile -InterfaceAlias $adapter).NetworkCategory	
+	try {
+		Write-Log "[INFO] Configuring Firewall" -Color White
+		New-NetFirewallRule -DisplayName "PXEServer Services HTTP" -Direction Inbound -Protocol TCP -LocalPort $($Config.HttpPort) -Action Allow -Profile "$currentNetProfile" -Enabled True | Out-Null
+		Write-Log "[DEBUG] Firewall rule created: PXEServer Services HTTP (TCP/$($Config.httpPort))" -Color Yellow
+		$udpPorts = @(53, 67, 69, 4011)
+		New-NetFirewallRule -DisplayName "PXEServer Services DNS/DHCP/TFTP/pDHCP" -Direction Inbound -Protocol UDP -LocalPort $udpPorts -Action Allow -Profile "$currentNetProfile" -Enabled True | Out-Null
+		Write-Log "[DEBUG] Firewall rule created: PXEServer Services DNS/DHCP/TFTP/pDHCP (UDP/53,67,69,4011)" -Color Yellow
+	} catch {
+		Write-Log "[ERROR] Failed to create firewall rules: $_`n`nPress any key to exit..." -Color Red
+		[void][System.Console]::ReadKey($true)
+	}
+	Write-Log "[INFO] Configuring Network Adapter" -Color White
+	netsh interface ipv4 set interface "$adapter" dhcpstaticipcoexistence=enabled | Out-Null
+	netsh interface ipv4 add address "$adapter" $Config.PXEServerIP | Out-Null
+}
+
+Write-Log "[INFO] Initializing..." -Color White
+
+# Check network settings, adjust if needed
+$route = Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Select-Object -First 1
+$gateway = $route.NextHop
+$gatewayParts = $gateway -split '\.'
+$gatewayPrefix = "$($gatewayParts[0]).$($gatewayParts[1]).$($gatewayParts[2])."
+$internalIP = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.InterfaceAlias -ne 'Loopback Pseudo-Interface 1' -and $_.IPAddress -like "$gatewayPrefix*" }).IPAddress
+$adapter = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -match 'Ethernet|Wi-Fi' -and $_.IPAddress -like "$gatewayPrefix*" }).InterfaceAlias
+if(!(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -eq $adapter -and $_.IPAddress -eq $($Config.PXEServerIP) })) {
+	$needsSetup++
+}
+if((Get-NetFirewallProfile -Profile (Get-NetConnectionProfile).NetworkCategory).Enabled){
+	$needsSetup++
+}
+$ipConfig = Get-NetIPConfiguration -InterfaceAlias $adapter
+$ipAddress = Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4
+$ips = @((Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4).IPAddress)
+if ($ips.Count -le 1) {
+	$needsSetup++
+}
+
+if($needsSetup){
+	prepareNetworkSettings
+}
+
+Write-Log "[INFO] Starting PXE Server, please wait..." -Color White
+
 # Make sure a HTTP server isnt already running from an improper shutdown
 try {
+	Set-Variable ProgressPreference SilentlyContinue
 	iwr "http://$($Config.PXEServerIP):$($Config.HttpPort)/shutdown" -ErrorAction SilentlyContinue | Out-Null
+	Set-Variable ProgressPreference Continue
 }
 catch {
 	Write-Log "[DEBUG] HTTP Server IP/Port screened" -Color Yellow
@@ -222,7 +244,8 @@ try {
 	Write-Log "[DEBUG] BCD store created successfully at $TargetBCD" -Color Yellow
 }
 catch {
-	Write-Log "[ERROR] BCD creation failed: $_" -Color Red
+	Write-Log "[ERROR] BCD creation failed: $_`n`nPress any key to exit..." -Color Red
+	[void][System.Console]::ReadKey($true)
 	exit
 }
 
@@ -259,7 +282,8 @@ try {
 	Write-Log "[DEBUG] DNS server initialized on $($Config.PXEServerIP):53" -Color Yellow
 }
 catch {
-	Write-Log "[ERROR] Failed to initialize sockets: $_" -Color Red
+	Write-Log "[ERROR] Failed to initialize sockets: $_`n`nPress any key to exit..." -Color Red
+	[void][System.Console]::ReadKey($true)
 	exit
 }
 
@@ -1078,11 +1102,11 @@ finally {
 		if ($dnsSocket) { $dnsSocket.Close(); $dnsSocket.Dispose() }
 		if ($httpJob) {
 			try {
-				$ProgressPreference = 'SilentlyContinue'
+				Set-Variable ProgressPreference SilentlyContinue
 				iwr "http://$($Config.PXEServerIP):$($Config.HttpPort)/shutdown" -ErrorAction SilentlyContinue | Out-Null
-				$ProgressPreference = 'Continue'
+				Set-Variable ProgressPreference Continue
 				if ($Config.DebugMode){
-					$httpConsoleOutput = Receive-Job -Job $httpJob -ErrorAction SilentlyContinue
+					$httpConsoleOutput = Receive-Job -Job $httpJob -ErrorAction SilentlyContinue | Out-Null
 					if ($httpConsoleOutput) {
 						foreach ($line in $httpConsoleOutput) {
 							Write-Host $line
@@ -1108,9 +1132,16 @@ finally {
 	catch {
 		Write-Log "[WARNING] Error closing sockets: $_" -Color Yellow
 	}
-	Remove-NetIPAddress -InterfaceAlias "$adapter" -IPAddress $Config.PXEServerIP -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+	Remove-NetIPAddress -InterfaceAlias "$adapter" -IPAddress $($Config.PXEServerIP) -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
 	netsh interface ipv4 set interface "$adapter" dhcpstaticipcoexistence=disabled | Out-Null
-	Set-NetFirewallProfile -Profile ((Get-NetConnectionProfile).NetworkCategory) -Enabled True | Out-Null
-	Write-Log "[INFO] Shutdown complete`n`nPress any key to continue..." -Color White
+    try {
+		Set-Variable ProgressPreference SilentlyContinue
+		Remove-NetFirewallRule -DisplayName "PXEServer Services*" -ErrorAction SilentlyContinue | Out-Null
+		Set-Variable ProgressPreference Continue
+		Write-Log "[DEBUG] Firewall rules matching 'PXEServer Services*' removed" -Color White
+    } catch {
+        Write-Log "[ERROR] Failed to remove firewall rules: $_" -Color Yellow
+    }
+	Write-Log "[INFO] Shutdown complete`n`nPress any key to exit..." -Color White
 	[void][System.Console]::ReadKey($true)
 }
