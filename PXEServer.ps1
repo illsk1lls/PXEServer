@@ -33,7 +33,7 @@ $Config = @{
 	DebugMode       = $false
 }
 
-# SecureBoot compatility can be enabled, but provides less NIC support(drivers), if you are having network issues try leaving SecureBoot Compatibility disabled
+# SecureBoot compatility can be enabled, but provides less NIC support(drivers), if you are having boot issues try leaving SecureBoot Compatibility disabled
 # To enable SecureBoot support navigate to the following page: https://knowledge.broadcom.com/external/article/280113/updated-64bit-ipxeefi-ipxe-v1211+-binari.html
 # Scroll to the bottom of the page, and click the 64bit_ipxe_efi.zip download button to get a signed copy of ipxe.efi (Thank you Broadcom)
 # Extract ipxe.efi from 64bit_ipxe_efi.zip AND RENAME IT TO ==> ipxe2.efi
@@ -42,32 +42,6 @@ $Config = @{
 # This feature will override the PXEServer HttpPort config settings, it will be locked to 4433 - To disable this feature simply remove C:\PXE\NBP\ipxe2.efi and restart the server
 #
 $SecureBootCompatibility = (Test-Path -Path "$($Config.PXEServerRoot)\NBP\ipxe2.efi")
-
-function notReady {
-	write-host "The system is not setup correctly for the PXEServer!`n`nRun x-Install.ps1 to prepare the system.`n`nPress any key to exit..."
-	[void][System.Console]::ReadKey($true)
-	Exit
-}
-
-# Check if pre-reqs are ready
-$route = Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Select-Object -First 1
-$gateway = $route.NextHop
-$gatewayParts = $gateway -split '\.'
-$gatewayPrefix = "$($gatewayParts[0]).$($gatewayParts[1]).$($gatewayParts[2])."
-$internalIP = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.InterfaceAlias -ne 'Loopback Pseudo-Interface 1' -and $_.IPAddress -like "$gatewayPrefix*" }).IPAddress
-$adapter = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -match 'Ethernet|Wi-Fi' -and $_.IPAddress -like "$gatewayPrefix*" }).InterfaceAlias
-if(!(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -eq $adapter -and $_.IPAddress -eq $($Config.PXEServerIP) })) {
-	notReady
-}
-if((Get-NetFirewallProfile -Profile (Get-NetConnectionProfile).NetworkCategory).Enabled){
-	notReady
-}
-$ipConfig = Get-NetIPConfiguration -InterfaceAlias $adapter
-$ipAddress = Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4
-$ips = @((Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4).IPAddress)
-if ($ips.Count -le 1) {
-	notReady
-}
 
 # Console/Log output
 function Write-Log {
@@ -123,6 +97,34 @@ try {
 catch {
 	Write-Host "[ERROR] Log file management failed: $_" -ForegroundColor Red
 	exit
+}
+
+function prepareNetworkSettings {
+	Set-NetFirewallProfile -Profile ((Get-NetConnectionProfile).NetworkCategory) -Enabled False | Out-Null
+	netsh interface ipv4 set interface "$adapter" dhcpstaticipcoexistence=enabled | Out-Null
+	netsh interface ipv4 add address "$adapter" $Config.PXEServerIP | Out-Null
+}
+
+Write-Log "[INFO] Getting Ready..." -Color White
+
+# Check network settings, adjust if needed
+$route = Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Select-Object -First 1
+$gateway = $route.NextHop
+$gatewayParts = $gateway -split '\.'
+$gatewayPrefix = "$($gatewayParts[0]).$($gatewayParts[1]).$($gatewayParts[2])."
+$internalIP = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.InterfaceAlias -ne 'Loopback Pseudo-Interface 1' -and $_.IPAddress -like "$gatewayPrefix*" }).IPAddress
+$adapter = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -match 'Ethernet|Wi-Fi' -and $_.IPAddress -like "$gatewayPrefix*" }).InterfaceAlias
+if(!(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -eq $adapter -and $_.IPAddress -eq $($Config.PXEServerIP) })) {
+	prepareNetworkSettings
+}
+if((Get-NetFirewallProfile -Profile (Get-NetConnectionProfile).NetworkCategory).Enabled){
+	prepareNetworkSettings
+}
+$ipConfig = Get-NetIPConfiguration -InterfaceAlias $adapter
+$ipAddress = Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4
+$ips = @((Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4).IPAddress)
+if ($ips.Count -le 1) {
+	prepareNetworkSettings
 }
 
 # If SecureBootCompatibility is on these settings are mandatory
@@ -779,7 +781,8 @@ $httpCheckInterval = 5	# Check every 5 seconds to make sure http server is up, c
 $lastHttpCheck = [DateTime]::Now
 
 # Main loop
-Write-Log "[INFO] PXE Server starting [DHCP, ProxyDHCP, DNS, TFTP, HTTP]  [SecureBoot Support: $(if ($SecureBootCompatibility) { 'ON' } else { 'OFF' })]" -Color White
+Clear-Host
+Write-Log "[INFO] PXE Server Running [DHCP, ProxyDHCP, DNS, TFTP, HTTP]  [SecureBoot Support: $(if ($SecureBootCompatibility) { 'ON' } else { 'OFF' })]" -Color White
 Write-Log "[INFO] Server IP: $($Config.PXEServerIP), Subnet: $($Config.SubnetMask), Pool: $($Config.StartIP) - $($Config.EndIP)" -Color White
 Write-Log "[INFO] Press ESC to exit" -Color White
 
@@ -1105,6 +1108,9 @@ finally {
 	catch {
 		Write-Log "[WARNING] Error closing sockets: $_" -Color Yellow
 	}
+	Remove-NetIPAddress -InterfaceAlias "$adapter" -IPAddress $Config.PXEServerIP -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+	netsh interface ipv4 set interface "$adapter" dhcpstaticipcoexistence=disabled | Out-Null
+	Set-NetFirewallProfile -Profile ((Get-NetConnectionProfile).NetworkCategory) -Enabled True | Out-Null
 	Write-Log "[INFO] Shutdown complete`n`nPress any key to continue..." -Color White
 	[void][System.Console]::ReadKey($true)
 }
