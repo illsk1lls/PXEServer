@@ -804,8 +804,11 @@ $clientOptions = @{}
 $httpCheckInterval = 5	# Check every 5 seconds to make sure http server is up, client disconnect/reboot during download crashes server, job relaunch is faster than client can reconnect ;)
 $lastHttpCheck = [DateTime]::Now
 
+if(!($Config.DebugMode)){
+	Clear-Host
+}
+
 # Main loop
-Clear-Host
 Write-Log "[INFO] PXE Server Running [DHCP, ProxyDHCP, DNS, TFTP, HTTP]  [SecureBoot Support: $(if ($SecureBootCompatibility) { 'ON' } else { 'OFF' })]" -Color White
 Write-Log "[INFO] Server IP: $($Config.PXEServerIP), Subnet: $($Config.SubnetMask), Pool: $($Config.StartIP) - $($Config.EndIP)" -Color White
 Write-Log "[INFO] Press ESC to exit" -Color White
