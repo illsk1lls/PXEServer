@@ -771,7 +771,7 @@ $httpScriptBlock = {
 
 			$filePath = Join-Path $Config['PXEServerRoot'] $urlPath
 
-			if ($urlPath -eq "GetPxeScript") {
+			if ($urlPath -match ".*GetPxeScript.*") {
 				$filePath = "$($Config['PXEServerRoot'])\NBP\uefi.cfg"
 			}
 
