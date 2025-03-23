@@ -18,18 +18,19 @@ Add-Type -AssemblyName System.Net
 
 # Configuration
 $Config = @{
-	PXEServerRoot	= "C:\PXE"
-	PXEServerIP		= "169.168.2.1"
-	StartIP			= "169.168.2.2"
-	EndIP			= "169.168.2.254"
-	SubnetMask		= "255.255.255.0"
-	LogFile			= "pxeSession.log"
-	LeaseTime		= 300
-	MaxBlockSize	= 1468
-	BaseTimeoutMs	= 2000
-	OackTimeoutMs	= 5000
-	TftpMaxRetries	= 5
-	HttpPort		= 80
+	PXEServerRoot   = "C:\PXE"
+	PXEServerIP     = "169.168.2.1"
+	StartIP         = "169.168.2.2"
+	EndIP           = "169.168.2.254"
+	SubnetMask      = "255.255.255.0"
+	LogFile         = "pxeSession.log"
+	LeaseTime       = 300
+	MaxBlockSize    = 1468
+	BaseTimeoutMs   = 2000
+	OackTimeoutMs   = 5000
+	TftpMaxRetries  = 5
+	HttpPort        = 80
+	DebugMode       = $false
 }
 
 # SecureBoot compatility can be enabled, but provides less NIC support(drivers), if you are having network issues try leaving SecureBoot Compatibility disabled
@@ -43,9 +44,9 @@ $Config = @{
 $SecureBootCompatibility = (Test-Path -Path "$($Config.PXEServerRoot)\NBP\ipxe2.efi")
 
 function notReady {
-    write-host "The system is not setup correctly for the PXEServer!`n`nRun x-Install.ps1 to prepare the system.`n`nPress any key to exit..."
+	write-host "The system is not setup correctly for the PXEServer!`n`nRun x-Install.ps1 to prepare the system.`n`nPress any key to exit..."
 	[void][System.Console]::ReadKey($true)
-	Exit	
+	Exit
 }
 
 # Check if pre-reqs are ready
@@ -75,8 +76,12 @@ function Write-Log {
 		[ConsoleColor]$Color = "White"
 	)
 	$timestamp = "[$(Get-Date -Format 'HH:mm:ss')] $Message"
-	if ($Message -match "^\[INFO\]|\[ERROR\]") {
+	if ($Config.DebugMode) {
 		Write-Host $timestamp -ForegroundColor $Color
+	} else {
+		if ($Message -match "^\[INFO\]|\[ERROR\]") {
+			Write-Host $timestamp -ForegroundColor $Color
+		}
 	}
 	try {
 		$logFile = "$($Config.PXEServerRoot)\logs\$($Config.LogFile)"
@@ -99,21 +104,21 @@ $log2File = "$logDir\$($logBase -replace '.log$', '.log2')"
 try {
 	if (-not (Test-Path $logDir)) {
 		New-Item -Path $logDir -ItemType Directory -Force | Out-Null
-		Write-Log "[DEBUG] Created log directory: $logDir" -Color White
+		Write-Log "[DEBUG] Created log directory: $logDir" -Color Yellow
 	}
 
 	# Rotate logs if the main log file exists, keeping only 1 old log
 	if (Test-Path $logFile) {
 		if (Test-Path $log2File) {
 			Remove-Item -Path $log2File -Force -ErrorAction Stop
-			Write-Log "[DEBUG] Removed old $log2File" -Color White
+			Write-Log "[DEBUG] Removed old $log2File" -Color Yellow
 		}
 		Rename-Item -Path $logFile -NewName $log2File -ErrorAction Stop
-		Write-Log "[DEBUG] Renamed previous log to $log2File" -Color White
+		Write-Log "[DEBUG] Renamed previous log to $log2File" -Color Yellow
 	}
 
 	New-Item -Path $logFile -ItemType File -Force | Out-Null
-	Write-Log "[DEBUG] Started fresh log file at $logFile" -Color White
+	Write-Log "[DEBUG] Started fresh log file at $logFile" -Color Yellow
 }
 catch {
 	Write-Host "[ERROR] Log file management failed: $_" -ForegroundColor Red
@@ -136,7 +141,7 @@ initrd http://$($Config.PXEServerIP):4433/sources/boot.wim boot.wim
 boot
 "@
 		Set-Content -Path "$($Config.PXEServerRoot)\NBP\uefi.cfg" -Value $ueficonfig -Force -ErrorAction Stop
-		Write-Log "[DEBUG] Generated boot data at $($Config.PXEServerRoot) with $($Config.PXEServerIP):4433" -Color Green
+		Write-Log "[DEBUG] Generated boot data at $($Config.PXEServerRoot) with $($Config.PXEServerIP):4433" -Color Yellow
 	}
 	catch {
 		Write-Log "[ERROR] Failed to generate boot data (uefi.cfg): $_" -Color Red
@@ -152,7 +157,7 @@ try {
 	iwr "http://$($Config.PXEServerIP):$($Config.HttpPort)/shutdown" -ErrorAction SilentlyContinue | Out-Null
 }
 catch {
-	Write-Log "[DEBUG] HTTP Server IP/Port screened" -Color Red
+	Write-Log "[DEBUG] HTTP Server IP/Port screened" -Color Yellow
 }
 # Initialize and create BCD
 try {
@@ -167,9 +172,14 @@ try {
 	)
 	foreach ($file in $requiredFiles) {
 		if (-not (Test-Path $file)) {
-			Write-Log "[DEBUG] Required file not found: $file. Please ensure all files are in place or comment out the file above the BCD creation section in the script." -Color Red
-			exit
+			Write-Log "[INFO] Required file not found: $file." -Color Red
+			$missingfiles++
 		}
+	}
+	if($missingfiles){
+		Write-Log "[INFO] Required files missing! Please ensure all files are in place.`n`nPress any key to exit..." -Color White
+		[void][System.Console]::ReadKey($true)
+		Exit
 	}
 	$BcdEditExe = "C:\Windows\System32\bcdedit.exe"
 	$TargetBCD = "$($Config.PXEServerRoot)\boot\BCD"
@@ -177,7 +187,7 @@ try {
 	$Description = "Windows PE"
 	$Locale = "en-US"
 
-	Write-Log "[DEBUG] Creating BCD store at $TargetBCD..." -Color White
+	Write-Log "[DEBUG] Creating BCD store at $TargetBCD..." -Color Yellow
 	Remove-Item $TargetBCD -Force -ErrorAction SilentlyContinue | Out-Null
 
 	& $BcdEditExe /createstore $TargetBCD | Out-Null
@@ -207,7 +217,7 @@ try {
 	& $BcdEditExe /store $TargetBCD /set "{bootmgr}" default $guid | Out-Null
 	& $BcdEditExe /store $TargetBCD /set "{bootmgr}" displayorder $guid | Out-Null
 	& $BcdEditExe /store $TargetBCD /set "{default}" bootmenupolicy legacy | Out-Null
-	Write-Log "[DEBUG] BCD store created successfully at $TargetBCD" -Color White
+	Write-Log "[DEBUG] BCD store created successfully at $TargetBCD" -Color Yellow
 }
 catch {
 	Write-Log "[ERROR] BCD creation failed: $_" -Color Red
@@ -216,35 +226,35 @@ catch {
 
 # Initialize sockets
 try {
-	Write-Log "[DEBUG] Initializing DHCP socket on $($Config.PXEServerIP):67" -Color White
+	Write-Log "[DEBUG] Initializing DHCP socket on $($Config.PXEServerIP):67" -Color Yellow
 	$dhcpSocket = New-Object System.Net.Sockets.UdpClient
 	$dhcpSocket.Client.SetSocketOption([System.Net.Sockets.SocketOptionLevel]::Socket, [System.Net.Sockets.SocketOptionName]::ReuseAddress, $true)
 	$dhcpSocket.Client.Bind([System.Net.IPEndPoint]::new([System.Net.IPAddress]::Parse($Config.PXEServerIP), 67))
-	Write-Log "[DEBUG] DHCP socket bound, LocalEndpoint: $($dhcpSocket.Client.LocalEndPoint)" -Color White
+	Write-Log "[DEBUG] DHCP socket bound, LocalEndpoint: $($dhcpSocket.Client.LocalEndPoint)" -Color Yellow
 
-	Write-Log "[DEBUG] Initializing TFTP socket on $($Config.PXEServerIP):69" -Color White
+	Write-Log "[DEBUG] Initializing TFTP socket on $($Config.PXEServerIP):69" -Color Yellow
 	$tftpSocket = New-Object System.Net.Sockets.UdpClient
 	$tftpSocket.Client.SetSocketOption([System.Net.Sockets.SocketOptionLevel]::Socket, [System.Net.Sockets.SocketOptionName]::ReuseAddress, $true)
 	$tftpSocket.Client.Bind([System.Net.IPEndPoint]::new([System.Net.IPAddress]::Parse($Config.PXEServerIP), 69))
-	Write-Log "[DEBUG] TFTP socket bound, LocalEndpoint: $($tftpSocket.Client.LocalEndPoint)" -Color White
+	Write-Log "[DEBUG] TFTP socket bound, LocalEndpoint: $($tftpSocket.Client.LocalEndPoint)" -Color Yellow
 
 	$proxyDhcpSocket = $null
 	try {
 		$proxyDhcpSocket = New-Object System.Net.Sockets.UdpClient
 		$proxyDhcpSocket.Client.SetSocketOption([System.Net.Sockets.SocketOptionLevel]::Socket, [System.Net.Sockets.SocketOptionName]::ReuseAddress, $true)
 		$proxyDhcpSocket.Client.Bind([System.Net.IPEndPoint]::new([System.Net.IPAddress]::Parse($Config.PXEServerIP), 4011))
-		Write-Log "[DEBUG] ProxyDHCP socket bound, LocalEndpoint: $($proxyDhcpSocket.Client.LocalEndPoint)" -Color White
+		Write-Log "[DEBUG] ProxyDHCP socket bound, LocalEndpoint: $($proxyDhcpSocket.Client.LocalEndPoint)" -Color Yellow
 	}
 	catch {
-		Write-Log "[WARNING] Failed to bind ProxyDHCP socket on port 4011: $_" -Color Yellow
+		Write-Log "[ERROR] Failed to bind ProxyDHCP socket on port 4011: $_" -Color Red
 	}
 
-	Write-Log "[DEBUG] Initializing DNS socket on $($Config.PXEServerIP):53" -Color White
+	Write-Log "[DEBUG] Initializing DNS socket on $($Config.PXEServerIP):53" -Color Yellow
 	$dnsSocket = New-Object System.Net.Sockets.UdpClient
 	$dnsSocket.Client.SetSocketOption([System.Net.Sockets.SocketOptionLevel]::Socket, [System.Net.Sockets.SocketOptionName]::ReuseAddress, $true)
 	$dnsSocket.Client.Bind([System.Net.IPEndPoint]::new([System.Net.IPAddress]::Parse($Config.PXEServerIP), 53))
 	$dnsSocket.Client.ReceiveTimeout = 2000
-	Write-Log "[DEBUG] DNS server initialized on $($Config.PXEServerIP):53" -Color Green
+	Write-Log "[DEBUG] DNS server initialized on $($Config.PXEServerIP):53" -Color Yellow
 }
 catch {
 	Write-Log "[ERROR] Failed to initialize sockets: $_" -Color Red
@@ -288,7 +298,7 @@ function Send-TFTPFile {
 		$maxRetries = $Config.TftpMaxRetries
 		$timeout = $TimeoutMs
 
-		Write-Log "[DEBUG] Starting TFTP transfer to $($ClientEndpoint.Address):$($ClientEndpoint.Port) for $FilePath" -Color Green
+		Write-Log "[DEBUG] Starting TFTP transfer to $($ClientEndpoint.Address):$($ClientEndpoint.Port) for $FilePath" -Color Yellow
 
 		while (($bytesRead = $fileStream.Read($buffer, 0, $BlockSize)) -gt 0) {
 			$blockBytes = [BitConverter]::GetBytes([uint16]$blockNumber)
@@ -333,10 +343,10 @@ function Send-TFTPFile {
 		if ($bytesRead -eq 0) {
 			$tftpfileName = Split-Path $FilePath -Leaf
 			if ($tftpfileName -like "undionly*") {
-				Write-Log "[INFO] $($ClientEndpoint.Address) received bootfiles for BIOS mode" -Color Green
+				Write-Log "[INFO] $($ClientEndpoint.Address) received chainloader for BIOS mode" -Color Green
 			}
 			elseif ($tftpfileName -like "ipxe*") {
-				Write-Log "[INFO] $($ClientEndpoint.Address) received bootfiles for UEFI mode" -Color Green
+				Write-Log "[INFO] $($ClientEndpoint.Address) received chainloader for UEFI mode" -Color Green
 			}
 			else {
 				Write-Log "[INFO] TFTP transfer completed for $tftpfileName to $($ClientEndpoint.Address):$($ClientEndpoint.Port)" -Color Yellow
@@ -578,7 +588,7 @@ function Handle-DNSQuery {
 			return
 		}
 
-		Write-Log "[DEBUG] Responding with $($Config.PXEServerIP)" -Color Green
+		Write-Log "[DEBUG] Responding with $($Config.PXEServerIP)" -Color Yellow
 		Send-DNSResponse -ClientEndpoint $ClientEndpoint -TransactionID $transactionID -Query $Query -AnswerIP $Config.PXEServerIP
 	}
 	catch {
@@ -636,20 +646,24 @@ function Send-DNSResponse {
 	}
 
 	$bytesSent = $dnsSocket.Send($response, $pos, $ClientEndpoint)
-	Write-Log "[DEBUG] Sent response ($bytesSent bytes), RCODE: $RCode" -Color Green
+	Write-Log "[DEBUG] Sent response ($bytesSent bytes), RCODE: $RCode" -Color Yellow
 }
 
 # HTTP Server ScriptBlock
 $httpScriptBlock = {
-	param($Config, [bool]$IsUEFI = $false)
+	param($Config)
 
 	Add-Type -AssemblyName System.Net
 
 	function Write-Log {
 		param ([string]$Message, [ConsoleColor]$Color = "White")
 		$timestamp = "[$(Get-Date -Format 'HH:mm:ss')] $Message"
-		if ($Message -match "^\[INFO\]|\[ERROR\]") {
+		if ($Config.DebugMode) {
 			Write-Host $timestamp -ForegroundColor $Color
+		} else {
+			if ($Message -match "^\[INFO\]|\[ERROR\]") {
+				Write-Host $timestamp -ForegroundColor $Color
+			}
 		}
 		try {
 			$logFile = "$($Config.PXEServerRoot)\logs\$($Config.LogFile)"
@@ -667,7 +681,7 @@ $httpScriptBlock = {
 		$listener = New-Object System.Net.HttpListener
 		$listener.Prefixes.Add("http://$($Config['PXEServerIP']):$($Config['HttpPort'])/")
 		$listener.Start()
-		Write-Log "[DEBUG] HTTP server started on http://$($Config['PXEServerIP']):$($Config['HttpPort'])/" -Color Green
+		Write-Log "[DEBUG] HTTP server started on http://$($Config['PXEServerIP']):$($Config['HttpPort'])/" -Color Yellow
 	}
 	catch {
 		Write-Log "[ERROR] Failed to start HTTP server: $_" -Color Red
@@ -682,33 +696,25 @@ $httpScriptBlock = {
 			$response = $context.Response
 			$urlPath = $request.RawUrl.TrimStart('/')
 
-			Write-Log "[DEBUG] HTTP request received for: $urlPath from $($request.RemoteEndPoint)" -Color Green
+			Write-Log "[DEBUG] HTTP request received for: $urlPath from $($request.RemoteEndPoint)" -Color Yellow
+
+			if ($urlPath -match ".*shutdown") {
+				Write-Log "[DEBUG] Shutdown command received from main thread." -Color Yellow
+				$response.StatusCode = 200	# OK
+				$content = [System.Text.Encoding]::UTF8.GetBytes("Shutting down HTTP server")
+				$response.ContentLength64 = $content.Length
+				$response.OutputStream.Write($content, 0, $content.Length)
+				$response.Close()
+				$listener.Stop()
+				$listener.Close()
+				Write-Log "[DEBUG] HTTP server shut down gracefully" -Color Yellow
+				Exit 0
+			}
 
 			$filePath = Join-Path $Config['PXEServerRoot'] $urlPath
 
-			if($filePath -like "*shutdown"){
-				Write-Log "[DEBUG] Shutdown command recieved from main thread." -Color Green
-				$listener.Stop()
-				$listener.Close()
-				Exit
-			}
-
-			if($filePath -like "*GetPxeScript*"){
-				try {
-					$filepath = "$($Config['PXEServerRoot'])\NBP\uefi.cfg"
-				}
-				catch {
-					Write-Log "[ERROR] HTTP Server error: $_" -Color Red
-				}
-			}
-
-			if($filePath -like "*GetPxeScript*"){
-				try {
-					$filepath = "$($Config['PXEServerRoot'])\NBP\uefi.cfg"
-				}
-				catch {
-					Write-Log "[ERROR] HTTP Server error: $_" -Color Red
-				}
+			if ($urlPath -eq "GetPxeScript") {
+				$filePath = "$($Config['PXEServerRoot'])\NBP\uefi.cfg"
 			}
 
 			if (Test-Path $filePath) {
@@ -716,7 +722,7 @@ $httpScriptBlock = {
 				$response.ContentType = "application/octet-stream"
 				$response.ContentLength64 = $fileBytes.Length
 				$response.OutputStream.Write($fileBytes, 0, $fileBytes.Length)
-				Write-Log "[DEBUG] Served file: $filePath ($($fileBytes.Length) bytes) via HTTP" -Color Green
+				Write-Log "[DEBUG] Served file: $filePath ($($fileBytes.Length) bytes) via HTTP" -Color Yellow
 			}
 			else {
 				$response.StatusCode = 404
@@ -727,17 +733,24 @@ $httpScriptBlock = {
 			}
 
 			$response.Close()
-			Write-Log "[DEBUG] HTTP response closed for $urlPath" -Color Yellow
+			if ($urlPath -match ".*boot\.wim") {
+				$completedEndpoint = $request.RemoteEndPoint
+				$regex = [regex]".*(?=:)"
+				$completedBootIP = $regex.Match($completedEndpoint).Value
+				Write-Log "[INFO] $completedBootIP received bootfiles" -Color Green
+			}
+			else {
+				Write-Log "[DEBUG] HTTP response closed for $urlPath" -Color Yellow
+			}
 		}
 	}
 	catch {
 		Write-Log "[ERROR] HTTP Server error: $_" -Color Red
 	}
 	finally {
-		if ($listener) {
+		if ($listener.IsListening) {
 			$listener.Stop()
 			$listener.Close()
-			Write-Log "[DEBUG] HTTP server shut down" -Color White
 		}
 	}
 }
@@ -755,7 +768,7 @@ function Start-HttpJob {
 		}
 	}
 	$HttpJobRef.Value = Start-Job -ScriptBlock $httpScriptBlock -ArgumentList $Config
-	Write-Log "[DEBUG] HTTP job started with ID: $($HttpJobRef.Value.Id)" -Color Green
+	Write-Log "[DEBUG] HTTP job started with ID: $($HttpJobRef.Value.Id)" -Color Yellow
 }
 
 # Background HTTP job
@@ -775,8 +788,21 @@ try {
 		if ([Console]::KeyAvailable) {
 			$key = [Console]::ReadKey($true)
 			if ($key.Key -eq [ConsoleKey]::Escape) {
-				Write-Log "[INFO] ESC pressed - shutting down" -Color White
+				Write-Log "[INFO] ESC pressed - Initiating Shutdown" -Color White
 				break
+			}
+		}
+
+		$httpConsoleOutput = Receive-Job -Job $httpJob -ErrorAction SilentlyContinue
+		if ($httpConsoleOutput) {
+			foreach ($line in $httpConsoleOutput) {
+				if ($Config.DebugMode) {
+					Write-Host $line
+				} else {
+					if ($line -NotLike "*DEBUG*") {
+						Write-Host $line
+					}
+				}
 			}
 		}
 
@@ -808,7 +834,7 @@ try {
 				$packet = $dhcpSocket.Receive([ref]$clientEndpoint)
 				Write-Log "[DEBUG] Received DHCP packet from $($clientEndpoint.Address):$($clientEndpoint.Port), length: $($packet.Length)" -Color Yellow
 				$packetHex = [BitConverter]::ToString($packet).Replace('-', ' ')
-				Write-Log "[DEBUG] DHCP Packet XID: $([BitConverter]::ToString($packet[4..7]).Replace('-',''))" -Color Cyan
+				Write-Log "[DEBUG] DHCP Packet XID: $([BitConverter]::ToString($packet[4..7]).Replace('-',''))" -Color Yellow
 				# Write-Log "[DEBUG] DHCP Packet Content (Hex): $packetHex" -Color Cyan
 				if ($packet.Length -ge 240 -and $packet[0] -eq 1) {
 					$mac = [BitConverter]::ToString($packet[28..33]).Replace('-','')
@@ -831,7 +857,7 @@ try {
 								$vendorClass = [System.Text.Encoding]::ASCII.GetString($valueBytes)
 								if ($vendorClass -like "PXEClient*") {
 									$pxeClient = $true
-									Write-Log "[DEBUG] Detected PXEClient (Vendor Class: $vendorClass) for MAC $mac" -Color Green
+									Write-Log "[DEBUG] Detected PXEClient (Vendor Class: $vendorClass) for MAC $mac" -Color Yellow
 								}
 							}
 							93 {
@@ -839,7 +865,7 @@ try {
 									$archType = ($valueBytes[0] -shl 8) + $valueBytes[1]
 									if ($archType -eq 0x0007) {
 										$isUEFI = $true
-										Write-Log "[DEBUG] Detected UEFI client (Arch: 0x$($archType.ToString('X4'))) for MAC $mac" -Color Green
+										Write-Log "[DEBUG] Detected UEFI client (Arch: 0x$($archType.ToString('X4'))) for MAC $mac" -Color Yellow
 									}
 									elseif ($archType -eq 0x0000) {
 										Write-Log "[DEBUG] Detected BIOS client (Arch: 0x$($archType.ToString('X4'))) for MAC $mac" -Color Yellow
@@ -859,7 +885,7 @@ try {
 					}
 
 					if ($dhcpMessageType -eq 1) {
-						Write-Log "[DEBUG] Processing DHCP DISCOVER from MAC $mac" -Color Green
+						Write-Log "[DEBUG] Processing DHCP DISCOVER from MAC $mac" -Color Yellow
 						$existingIp = $ipAssignments.Keys | Where-Object { $ipAssignments[$_] -eq $mac } | Select-Object -First 1
 						if ($existingIp) {
 							$ip = $existingIp
@@ -876,10 +902,10 @@ try {
 						}
 						if ($ip) {
 							Send-DHCPOffer -ClientEndpoint $clientEndpoint -AssignedIP $ip -ClientMAC $packet[28..33] -TransactionID $xid -IsUEFI $isUEFI
-							Write-Log "[DEBUG] DHCP assigned $ip to MAC $mac" -Color Green
+							Write-Log "[DEBUG] DHCP assigned $ip to MAC $mac" -Color Yellow
 							if ($pxeClient -and $proxyDhcpSocket) {
 								Send-ProxyDHCPOffer -ClientEndpoint $clientEndpoint -AssignedIP $ip -ClientMAC $packet[28..33] -TransactionID $xid -IsUEFI $isUEFI
-								Write-Log "[DEBUG] Sent ProxyDHCP OFFER for DISCOVER to $ip, TID $([BitConverter]::ToString($xid).Replace('-',''))" -Color Green
+								Write-Log "[DEBUG] Sent ProxyDHCP OFFER for DISCOVER to $ip, TID $([BitConverter]::ToString($xid).Replace('-',''))" -Color Yellow
 							}
 						}
 						else {
@@ -887,7 +913,7 @@ try {
 						}
 					}
 					elseif ($dhcpMessageType -eq 3) {
-						Write-Log "[DEBUG] Processing DHCP REQUEST from MAC $mac" -Color Green
+						Write-Log "[DEBUG] Processing DHCP REQUEST from MAC $mac" -Color Yellow
 						$ip = $ipAssignments.Keys | Where-Object { $ipAssignments[$_] -eq $mac } | Select-Object -First 1
 						if (-not $ip -and $requestedIP -and $ipPool.Contains($requestedIP)) {
 							$ping = Test-Connection -ComputerName $requestedIP -Count 1 -Quiet -ErrorAction SilentlyContinue
@@ -895,7 +921,7 @@ try {
 						}
 						if ($ip) {
 							Send-DHCPAck -ClientEndpoint $clientEndpoint -AssignedIP $ip -ClientMAC $packet[28..33] -TransactionID $xid -IsUEFI $isUEFI
-							Write-Log "[DEBUG] DHCP ACK sent for $ip to MAC $mac" -Color Green
+							Write-Log "[DEBUG] DHCP ACK sent for $ip to MAC $mac" -Color Yellow
 						}
 						else {
 							Write-Log "[ERROR] No valid IP assignment for DHCP REQUEST from MAC $mac" -Color Red
@@ -922,7 +948,7 @@ try {
 				$clientIP = $endpoint.Address.ToString()
 
 				if ($packet[0] -eq 0 -and $packet[1] -eq 1) {
-					Write-Log "[DEBUG] TFTP RRQ for $filename from $endpointKey" -Color Green
+					Write-Log "[DEBUG] TFTP RRQ for $filename from $endpointKey" -Color Yellow
 					$fileToServe = $null
 					switch -RegEx ($filename) {
 						"$global:BIOSBootfileName" { $fileToServe = "$($Config.PXEServerRoot)\NBP\$global:BIOSBootfileName" }
@@ -989,8 +1015,8 @@ try {
 				$packet = $proxyDhcpSocket.Receive([ref]$clientEndpoint)
 				Write-Log "[DEBUG] Received ProxyDHCP packet from $($clientEndpoint.Address):$($clientEndpoint.Port), length: $($packet.Length)" -Color Yellow
 				$packetHex = [BitConverter]::ToString($packet).Replace('-', ' ')
-				Write-Log "[DEBUG] ProxyDHCP Packet XID: $([BitConverter]::ToString($packet[4..7]).Replace('-',''))" -Color Cyan
-				Write-Log "[DEBUG] ProxyDHCP Packet Content (Hex): $packetHex" -Color Cyan
+				Write-Log "[DEBUG] ProxyDHCP Packet XID: $([BitConverter]::ToString($packet[4..7]).Replace('-',''))" -Color Yellow
+				# Write-Log "[DEBUG] ProxyDHCP Packet Content (Hex): $packetHex" -Color Cyan
 				if ($packet.Length -ge 240 -and $packet[0] -eq 1) {
 					$mac = $packet[28..33]
 					$xid = $packet[4..7]
@@ -1013,7 +1039,7 @@ try {
 									$archType = ($valueBytes[0] -shl 8) + $valueBytes[1]
 									if ($archType -eq 7) {
 										$isUEFI = $true
-										Write-Log "[DEBUG] Detected UEFI client (Arch: 0x$($archType.ToString('X4')))" -Color Green
+										Write-Log "[DEBUG] Detected UEFI client (Arch: 0x$($archType.ToString('X4')))" -Color Yellow
 									}
 								}
 							}
@@ -1023,12 +1049,12 @@ try {
 					if ($dhcpMessageType -eq 1) {
 						$ip = if ($ipAssignments.ContainsKey($clientEndpoint.Address.ToString())) { $clientEndpoint.Address.ToString() } else { "0.0.0.0" }
 						Send-ProxyDHCPOffer -ClientEndpoint $clientEndpoint -AssignedIP $ip -ClientMAC $mac -TransactionID $xid -IsUEFI $isUEFI
-						Write-Log "[DEBUG] Sent ProxyDHCP OFFER for DISCOVER to $ip, TID $([BitConverter]::ToString($xid).Replace('-',''))" -Color Green
+						Write-Log "[DEBUG] Sent ProxyDHCP OFFER for DISCOVER to $ip, TID $([BitConverter]::ToString($xid).Replace('-',''))" -Color Yellow
 					}
 					elseif ($dhcpMessageType -eq 3) {
 						$ip = $clientEndpoint.Address.ToString()
 						Send-ProxyDHCPOffer -ClientEndpoint $clientEndpoint -AssignedIP $ip -ClientMAC $mac -TransactionID $xid -IsUEFI $isUEFI
-						Write-Log "[DEBUG] Sent ProxyDHCP OFFER for REQUEST to $ip, TID $([BitConverter]::ToString($xid).Replace('-',''))" -Color Green
+						Write-Log "[DEBUG] Sent ProxyDHCP OFFER for REQUEST to $ip, TID $([BitConverter]::ToString($xid).Replace('-',''))" -Color Yellow
 					}
 				}
 			}
@@ -1042,40 +1068,43 @@ catch {
 	Write-Log "[ERROR] Server Error: $_" -Color Red
 }
 finally {
-	Write-Log "[INFO] Initiating shutdown..." -Color White
-
 	try {
 		if ($dhcpSocket) { $dhcpSocket.Close(); $dhcpSocket.Dispose() }
 		if ($tftpSocket) { $tftpSocket.Close(); $tftpSocket.Dispose() }
 		if ($proxyDhcpSocket) { $proxyDhcpSocket.Close(); $proxyDhcpSocket.Dispose() }
 		if ($dnsSocket) { $dnsSocket.Close(); $dnsSocket.Dispose() }
-		Write-Log "[INFO] Sockets (DHCP, TFTP, ProxyDHCP, DNS) closed and disposed" -Color White
+		if ($httpJob) {
+			try {
+				$ProgressPreference = 'SilentlyContinue'
+				iwr "http://$($Config.PXEServerIP):$($Config.HttpPort)/shutdown" -ErrorAction SilentlyContinue | Out-Null
+				$ProgressPreference = 'Continue'
+				if ($Config.DebugMode){
+					$httpConsoleOutput = Receive-Job -Job $httpJob -ErrorAction SilentlyContinue
+					if ($httpConsoleOutput) {
+						foreach ($line in $httpConsoleOutput) {
+							Write-Host $line
+						}
+					}
+				}
+			}
+			catch {
+				Write-Log "[ERROR] Error stopping HTTP job gracefully: $_" -Color Yellow
+				$jobInfo = Get-Job -Id $httpJob.Id -ErrorAction SilentlyContinue
+				if ($jobInfo) {
+					$processId = $jobInfo.ChildJobs[0].JobStateInfo.ProcessId
+					if ($processId) {
+						Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+						Write-Log "[DEBUG] HTTP job process (PID: $processId) forcefully terminated" -Color White
+					}
+				}
+				Remove-Job -Job $httpJob -ErrorAction SilentlyContinue
+			}
+		}
+		Write-Log "[INFO] Sockets (DHCP, TFTP, ProxyDHCP, DNS, HTTP) closed and disposed" -Color White
 	}
 	catch {
 		Write-Log "[WARNING] Error closing sockets: $_" -Color Yellow
 	}
-
-	if ($httpJob) {
-		Write-Log "[INFO] Stopping HTTP job..." -Color White
-		try {
-			# Send shutdown command to HTTP listener using iwr
-			iwr "http://$($Config.PXEServerIP):$($Config.HttpPort)/shutdown" -ErrorAction SilentlyContinue
-			Write-Log "[INFO] HTTP job stopped and removed" -Color White
-		}
-		catch {
-			Write-Log "[WARNING] Error stopping HTTP job gracefully: $_" -Color Yellow
-			$jobInfo = Get-Job -Id $httpJob.Id -ErrorAction SilentlyContinue
-			if ($jobInfo) {
-				$processId = $jobInfo.ChildJobs[0].JobStateInfo.ProcessId
-				if ($processId) {
-					Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
-					Write-Log "[INFO] HTTP job process (PID: $processId) forcefully terminated" -Color White
-				}
-			}
-			Remove-Job -Job $httpJob -ErrorAction SilentlyContinue
-		}
-	}
-
 	Write-Log "[INFO] Shutdown complete`n`nPress any key to continue..." -Color White
 	[void][System.Console]::ReadKey($true)
 }
