@@ -26,6 +26,7 @@ $Config = @{
 	EndIP           = 254
 	LeaseTime       = 300
 	HttpPort        = 80
+	Locale          = "en-US"
 	DebugMode       = $false
 }
 
@@ -151,7 +152,7 @@ function prepareNetworkSettings {
 $route = Get-NetRoute -DestinationPrefix 0.0.0.0/0 | Select-Object -First 1
 $gateway = $route.NextHop
 $gatewayParts = $gateway -split '\.'
-$gatewayPrefix = "$($gatewayParts[0]).$($gatewayParts[1]).$($gatewayParts[2])."
+$gatewayPrefix = (($gatewayParts[0..2] -join '.') + '.')
 $internalIP = (Get-NetIPAddress | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.InterfaceAlias -ne 'Loopback Pseudo-Interface 1' -and $_.IPAddress -like "$gatewayPrefix*" }).IPAddress
 $adapter = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -match 'Ethernet|Wi-Fi' -and $_.IPAddress -like "$gatewayPrefix*" }).InterfaceAlias
 if(!(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -eq $adapter -and $_.IPAddress -eq $($Config.PXEServerIP) })) {
@@ -165,13 +166,11 @@ $ips = @((Get-NetIPAddress -InterfaceAlias $adapter -AddressFamily IPv4).IPAddre
 if ($ips.Count -le 1) {
 	$needsSetup++
 }
-
 if($needsSetup){
 	prepareNetworkSettings
 }
 
 Write-Log "[INFO] Starting PXE Server, please wait..." -Color White
-
 # Make sure a HTTP server isnt already running from an improper shutdown
 try {
 	Set-Variable ProgressPreference SilentlyContinue
@@ -195,9 +194,14 @@ try {
 	)
 	foreach ($file in $requiredFiles) {
 		if (-not (Test-Path $file)) {
-			Write-Log "[ERROR] Required file not found: $file." -Color Red
+			Write-Log "[ERROR] Required file not found: $file" -Color Red
 			$missingfiles++
 		}
+	}
+	$BcdEditExe = "$env:SystemDrive\Windows\System32\bcdedit.exe"
+	if (-not (Test-Path $BcdEditExe)) {
+		Write-Log "[ERROR] BCD Editor missing! Not found at: $BcdEditExe" -Color Red
+		$missingfiles++
 	}
 	if($missingfiles){
 		Write-Log "[ERROR] Required files missing! Please ensure all files are in place." -Color Red
@@ -205,11 +209,8 @@ try {
 		[void][System.Console]::ReadKey($true)
 		Exit
 	}
-	$BcdEditExe = "C:\Windows\System32\bcdedit.exe"
 	$TargetBCD = "$($Config.PXEServerRoot)\boot\BCD"
 	$Timeout = 5
-	$Description = "Windows PE"
-	$Locale = "en-US"
 
 	Write-Log "[DEBUG] Creating BCD store at $TargetBCD..." -Color Yellow
 	Remove-Item $TargetBCD -Force -ErrorAction SilentlyContinue | Out-Null
@@ -222,10 +223,10 @@ try {
 	& $BcdEditExe /store $TargetBCD /set "{bootmgr}" device boot | Out-Null
 	& $BcdEditExe /store $TargetBCD /set "{bootmgr}" path "\bootmgr.exe" | Out-Null
 	& $BcdEditExe /store $TargetBCD /set "{bootmgr}" timeout $Timeout | Out-Null
-	& $BcdEditExe /store $TargetBCD /set "{bootmgr}" locale $Locale | Out-Null
+	& $BcdEditExe /store $TargetBCD /set "{bootmgr}" locale $Config.Locale | Out-Null
 	& $BcdEditExe /store $TargetBCD /set "{bootmgr}" nointegritychecks Yes | Out-Null
 
-	$osLoaderOutput = & $BcdEditExe /store $TargetBCD /create /application osloader /d $Description
+	$osLoaderOutput = & $BcdEditExe /store $TargetBCD /create /application osloader /d "PXE OS"
 	$guid = ($osLoaderOutput | Where-Object { $_ -match "{[a-f0-9-]+}" } | ForEach-Object { $matches[0] })
 	if (-not $guid) { throw "Failed to extract GUID from osloader creation." }
 
@@ -235,7 +236,7 @@ try {
 	& $BcdEditExe /store $TargetBCD /set $guid systemroot "\windows" | Out-Null
 	& $BcdEditExe /store $TargetBCD /set $guid detecthal Yes | Out-Null
 	& $BcdEditExe /store $TargetBCD /set $guid winpe Yes | Out-Null
-	& $BcdEditExe /store $TargetBCD /set $guid locale $Locale | Out-Null
+	& $BcdEditExe /store $TargetBCD /set $guid locale $Config.Locale | Out-Null
 	& $BcdEditExe /store $TargetBCD /set $guid nointegritychecks Yes | Out-Null
 	& $BcdEditExe /store $TargetBCD /set $guid testsigning Yes | Out-Null
 	& $BcdEditExe /store $TargetBCD /set "{bootmgr}" default $guid | Out-Null
@@ -324,7 +325,7 @@ for ($i = $Config.StartIP; $i -le $Config.EndIP; $i++) {
 $ipAssignments = [System.Collections.Concurrent.ConcurrentDictionary[string,string]]::new()
 $processedTransactionIDs = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
 
-# TFTP
+# TFTP functions
 function Send-TFTPFile {
 	param (
 		[System.Net.IPEndPoint]$ClientEndpoint,
@@ -447,7 +448,7 @@ function Receive-TFTPPacket {
 	}
 }
 
-# DHCP/ProxyDHCP
+# DHCP/ProxyDHCP functions
 function Send-ProxyDHCPOffer {
 	param (
 		[System.Net.IPEndPoint]$ClientEndpoint,
@@ -590,7 +591,7 @@ function Send-DHCPAck {
 	}
 }
 
-# DNS
+# DNS functions
 function Handle-DNSQuery {
 	param ([System.Net.IPEndPoint]$ClientEndpoint, [byte[]]$Query)
 
@@ -812,6 +813,7 @@ $httpScriptBlock = {
 	}
 }
 
+# HTTP function and initialization
 function Start-HttpJob {
 	param (
 		[ref]$HttpJobRef
@@ -827,8 +829,6 @@ function Start-HttpJob {
 	$HttpJobRef.Value = Start-Job -ScriptBlock $httpScriptBlock -ArgumentList $Config
 	Write-Log "[DEBUG] HTTP job started with ID: $($HttpJobRef.Value.Id)" -Color Yellow
 }
-
-# Initialize background HTTP job
 $httpJob = $null
 Start-HttpJob -HttpJobRef ([ref]$httpJob)
 $clientOptions = @{}
