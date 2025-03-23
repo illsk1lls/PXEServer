@@ -62,7 +62,7 @@ function Write-Log {
 		Add-Content -Path $logFile -Value $timestamp -ErrorAction Stop
 	}
 	catch {
-		Write-Host "[$(Get-Date -Format 'HH:mm:ss')] [ERROR] Failed to write to log file: $_" -ForegroundColor Red
+		Write-Host "[$(Get-Date -Format 'HH:mm:ss')] [ERROR] Failed to write to log file`: $_" -ForegroundColor Red
 	}
 }
 
@@ -94,7 +94,7 @@ try {
 	Write-Log "[DEBUG] Started fresh log file at $logFile" -Color Yellow
 }
 catch {
-	Write-Host "[ERROR] Log file management failed: $_" -ForegroundColor Red
+	Write-Host "[ERROR] Log file management failed`: $_" -ForegroundColor Red
 	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 	[void][System.Console]::ReadKey($true)
 	exit
@@ -119,7 +119,7 @@ boot
 		Write-Log "[DEBUG] Generated boot data at $($Config.PXEServerRoot) with $($Config.PXEServerIP):4433" -Color Yellow
 	}
 	catch {
-		Write-Log "[ERROR] Failed to generate boot data (uefi.cfg): $_" -Color Red
+		Write-Log "[ERROR] Failed to generate boot data (uefi.cfg)`: $_" -Color Red
 		Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 		[void][System.Console]::ReadKey($true)
 		exit
@@ -130,7 +130,7 @@ boot
 }
 
 function prepareNetworkSettings {
-	$currentNetProfile = (Get-NetConnectionProfile -InterfaceAlias $adapter).NetworkCategory	
+	$currentNetProfile = (Get-NetConnectionProfile -InterfaceAlias $adapter).NetworkCategory
 	try {
 		Write-Log "[INFO] Configuring Firewall" -Color White
 		New-NetFirewallRule -DisplayName "PXEServer Services HTTP" -Direction Inbound -Protocol TCP -LocalPort $($Config.HttpPort) -Action Allow -Profile "$currentNetProfile" -Enabled True | Out-Null
@@ -139,7 +139,7 @@ function prepareNetworkSettings {
 		New-NetFirewallRule -DisplayName "PXEServer Services DNS/DHCP/TFTP/pDHCP" -Direction Inbound -Protocol UDP -LocalPort $udpPorts -Action Allow -Profile "$currentNetProfile" -Enabled True | Out-Null
 		Write-Log "[DEBUG] Firewall rule created: PXEServer Services DNS/DHCP/TFTP/pDHCP (UDP/53,67,69,4011)" -Color Yellow
 	} catch {
-		Write-Log "[ERROR] Failed to create firewall rules: $_" -Color Red
+		Write-Log "[ERROR] Failed to create firewall rules`: $_" -Color Red
 		Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 		[void][System.Console]::ReadKey($true)
 	}
@@ -245,7 +245,7 @@ try {
 	Write-Log "[DEBUG] BCD store created successfully at $TargetBCD" -Color Yellow
 }
 catch {
-	Write-Log "[ERROR] BCD creation failed: $_" -Color Red
+	Write-Log "[ERROR] BCD creation failed`: $_" -Color Red
 	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 	[void][System.Console]::ReadKey($true)
 	exit
@@ -273,7 +273,7 @@ try {
 		Write-Log "[DEBUG] ProxyDHCP socket bound, LocalEndpoint: $($proxyDhcpSocket.Client.LocalEndPoint)" -Color Yellow
 	}
 	catch {
-		Write-Log "[ERROR] Failed to bind ProxyDHCP socket on port 4011: $_" -Color Red
+		Write-Log "[ERROR] Failed to bind ProxyDHCP socket on port 4011`: $_" -Color Red
 	}
 
 	Write-Log "[DEBUG] Initializing DNS socket on $($Config.PXEServerIP):53" -Color Yellow
@@ -284,7 +284,7 @@ try {
 	Write-Log "[DEBUG] DNS server initialized on $($Config.PXEServerIP):53" -Color Yellow
 }
 catch {
-	Write-Log "[ERROR] Failed to initialize sockets: $_" -Color Red
+	Write-Log "[ERROR] Failed to initialize sockets`: $_" -Color Red
 	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 	[void][System.Console]::ReadKey($true)
 	exit
@@ -295,7 +295,7 @@ if (-not ([int]::TryParse($Config.StartIP, [ref]$null)) -or -not ([int]::TryPars
 	Write-Log "[ERROR] StartIP and EndIP must be integers, check config!" -Color Red
 	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 	[void][System.Console]::ReadKey($true)
-    Exit
+	Exit
 }
 $startIPcheck = [int]$Config.StartIP
 $endIPcheck = [int]$Config.EndIP
@@ -303,20 +303,20 @@ if ($startIPcheck -lt 0 -or $startIPcheck -gt 254 -or $endIPcheck -lt 0 -or $end
 	Write-Log "[ERROR] StartIP and EndIP must be between 0 and 254, check config!" -Color Red
 	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 	[void][System.Console]::ReadKey($true)
-    Exit
+	Exit
 }
 if ($startIPcheck -gt $endIPcheck) {
-    $Config.StartIP, $Config.EndIP = @($Config.EndIP, $Config.StartIP)
-    $startIPcheck = [int]$Config.StartIP
-    $endIPcheck = [int]$Config.EndIP
+	$Config.StartIP, $Config.EndIP = @($Config.EndIP, $Config.StartIP)
+	$startIPcheck = [int]$Config.StartIP
+	$endIPcheck = [int]$Config.EndIP
 }
 $serverSubnet = [System.Net.IPAddress]::Parse($Config.PXEServerIP).GetAddressBytes()
 $serverFourthOctet = [int]$serverSubnet[3]
 if ($serverFourthOctet -ge $startIPcheck -and $serverFourthOctet -le $endIPcheck) {
-    Write-Log "[ERROR] PXEServerIP ($($Config.PXEServerIP)) cannot be within the client IP range ($($Config.StartIP) to $($Config.EndIP)), check config!" -Color Red
+	Write-Log "[ERROR] PXEServerIP ($($Config.PXEServerIP)) cannot be within the client IP range ($($Config.StartIP) to $($Config.EndIP)), check config!" -Color Red
 	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
-    [void][System.Console]::ReadKey($true)
-    Exit
+	[void][System.Console]::ReadKey($true)
+	Exit
 }
 $ipPool = [System.Collections.Concurrent.ConcurrentBag[string]]::new()
 for ($i = $Config.StartIP; $i -le $Config.EndIP; $i++) {
@@ -364,7 +364,7 @@ function Send-TFTPFile {
 
 			while ($retryCount -lt $maxRetries -and -not $ackReceived) {
 				$tftpSocket.Send($dataPacket, $dataPacket.Length, $ClientEndpoint) | Out-Null
-				if ($Config.DebugMode) { 
+				if ($Config.DebugMode) {
 					Write-Log "[DEBUG] Sent block $blockNumber ($bytesRead bytes) to $($ClientEndpoint.Address):$($ClientEndpoint.Port), Retry $retryCount" -Color Yellow
 				}
 				$tftpSocket.Client.ReceiveTimeout = $timeout
@@ -410,7 +410,7 @@ function Send-TFTPFile {
 		}
 	}
 	catch {
-		Write-Log "[ERROR] TFTP transfer failed: $_" -Color Red
+		Write-Log "[ERROR] TFTP transfer failed`: $_" -Color Red
 	}
 	finally {
 		if ($fileStream) { $fileStream.Close() }
@@ -443,7 +443,7 @@ function Receive-TFTPPacket {
 		return [PSCustomObject]@{ Data = $data; Endpoint = $endpoint; Filename = $null; Mode = $null; Options = $null }
 	}
 	catch {
-		Write-Log "[DEBUG] TFTP receive error: $_" -Color Yellow
+		Write-Log "[DEBUG] TFTP receive error`: $_" -Color Yellow
 		return [PSCustomObject]@{ Data = $null; Endpoint = $null; Filename = $null; Mode = $null; Options = $null }
 	}
 }
@@ -495,7 +495,7 @@ function Send-ProxyDHCPOffer {
 		}
 	}
 	catch {
-		Write-Log "[ERROR] ProxyDHCP Offer Error: $_" -Color Red
+		Write-Log "[ERROR] ProxyDHCP Offer Error`: $_" -Color Red
 	}
 }
 
@@ -542,7 +542,7 @@ function Send-DHCPOffer {
 		Write-Log "[DEBUG] Sent DHCP OFFER to $AssignedIP with bootfile $bootfileName for $(if ($IsUEFI) {'UEFI'} else {'BIOS'}) client, bytes sent: $bytesSent" -Color Yellow
 	}
 	catch {
-		Write-Log "[ERROR] DHCP Offer Error: $_" -Color Red
+		Write-Log "[ERROR] DHCP Offer Error`: $_" -Color Red
 	}
 }
 
@@ -587,7 +587,7 @@ function Send-DHCPAck {
 		Write-Log "[DEBUG] Sent DHCP ACK to $AssignedIP with bootfile $bootfileName for $(if ($IsUEFI) {'UEFI'} else {'BIOS'}) client, bytes sent: $bytesSent" -Color Yellow
 	}
 	catch {
-		Write-Log "[ERROR] DHCP ACK Error: $_" -Color Red
+		Write-Log "[ERROR] DHCP ACK Error`: $_" -Color Red
 	}
 }
 
@@ -650,7 +650,7 @@ function Handle-DNSQuery {
 		Send-DNSResponse -ClientEndpoint $ClientEndpoint -TransactionID $transactionID -Query $Query -AnswerIP $Config.PXEServerIP
 	}
 	catch {
-		Write-Log "[ERROR] DNS handling failed: $_, sending SERVFAIL" -Color Red
+		Write-Log "[ERROR] DNS handling failed`: $_, sending SERVFAIL" -Color Red
 		Send-DNSResponse -ClientEndpoint $ClientEndpoint -TransactionID $transactionID -RCode 2
 	}
 }
@@ -707,7 +707,7 @@ function Send-DNSResponse {
 	Write-Log "[DEBUG] Sent response ($bytesSent bytes), RCODE: $RCode" -Color Yellow
 }
 
-# HTTP Server ScriptBlock
+# HTTP Server Background Job
 $httpScriptBlock = {
 	param($Config)
 
@@ -731,9 +731,11 @@ $httpScriptBlock = {
 			Add-Content -Path $logFile -Value $timestamp -ErrorAction Stop
 		}
 		catch {
-			Write-Host "[$(Get-Date -Format 'HH:mm:ss')] [ERROR] Failed to write to log file: $_" -Color Red
+			Write-Host "[$(Get-Date -Format 'HH:mm:ss')] [ERROR] Failed to write to log file`: $_" -Color Red
 		}
 	}
+
+	Write-Log "[DEBUG] HTTP ScriptBlock starting" -Color Yellow
 
 	try {
 		$listener = New-Object System.Net.HttpListener
@@ -742,7 +744,7 @@ $httpScriptBlock = {
 		Write-Log "[DEBUG] HTTP server started on http://$($Config['PXEServerIP']):$($Config['HttpPort'])/" -Color Yellow
 	}
 	catch {
-		Write-Log "[ERROR] Failed to start HTTP server: $_" -Color Red
+		Write-Log "[ERROR] Failed to start HTTP server`: $_" -Color Red
 		return
 	}
 
@@ -758,7 +760,7 @@ $httpScriptBlock = {
 
 			if ($urlPath -match ".*shutdown") {
 				Write-Log "[DEBUG] Shutdown command received from main thread." -Color Yellow
-				$response.StatusCode = 200	# OK
+				$response.StatusCode = 200
 				$content = [System.Text.Encoding]::UTF8.GetBytes("Shutting down HTTP server")
 				$response.ContentLength64 = $content.Length
 				$response.OutputStream.Write($content, 0, $content.Length)
@@ -776,11 +778,30 @@ $httpScriptBlock = {
 			}
 
 			if (Test-Path $filePath) {
-				$fileBytes = [System.IO.File]::ReadAllBytes($filePath)
-				$response.ContentType = "application/octet-stream"
-				$response.ContentLength64 = $fileBytes.Length
-				$response.OutputStream.Write($fileBytes, 0, $fileBytes.Length)
-				Write-Log "[DEBUG] Served file: $filePath ($($fileBytes.Length) bytes) via HTTP" -Color Yellow
+				Write-Log "[DEBUG] Preparing to stream file: $filePath" -Color Yellow
+				$fileStream = [System.IO.File]::OpenRead($filePath)
+				try {
+					$response.ContentType = "application/octet-stream"
+					$response.ContentLength64 = $fileStream.Length
+					$buffer = New-Object Byte[] 65536
+					$bytesRead = 0
+					while (($bytesRead = $fileStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+						$response.OutputStream.Write($buffer, 0, $bytesRead)
+					}
+					Write-Log "[DEBUG] Served file: $filePath ($($fileStream.Length) bytes) via HTTP" -Color Yellow
+					if ($urlPath -match ".*boot\.wim") {
+						$completedEndpoint = $request.RemoteEndPoint
+						$regex = [regex]".*(?=:)"
+						$completedBootIP = $regex.Match($completedEndpoint).Value
+						Write-Log "[INFO] $completedBootIP received bootfiles" -Color Green
+					}
+				} catch {
+					Write-Log "[ERROR] Failed to stream file $filePath`: $_" -Color Red
+				}
+				finally {
+					$fileStream.Close()
+					$fileStream.Dispose()
+				}
 			}
 			else {
 				$response.StatusCode = 404
@@ -789,21 +810,12 @@ $httpScriptBlock = {
 				$response.OutputStream.Write($content, 0, $content.Length)
 				Write-Log "[ERROR] HTTP 404: File not found - $filePath" -Color Red
 			}
-
 			$response.Close()
-			if ($urlPath -match ".*boot\.wim") {
-				$completedEndpoint = $request.RemoteEndPoint
-				$regex = [regex]".*(?=:)"
-				$completedBootIP = $regex.Match($completedEndpoint).Value
-				Write-Log "[INFO] $completedBootIP received bootfiles" -Color Green
-			}
-			else {
-				Write-Log "[DEBUG] HTTP response closed for $urlPath" -Color Yellow
-			}
+			Write-Log "[DEBUG] HTTP response closed for $urlPath" -Color Yellow
 		}
 	}
 	catch {
-		Write-Log "[ERROR] HTTP Server error: $_" -Color Red
+		Write-Log "[ERROR] HTTP Server error`: $_" -Color Red
 	}
 	finally {
 		if ($listener.IsListening) {
@@ -823,7 +835,7 @@ function Start-HttpJob {
 			Remove-Job -Job $HttpJobRef.Value -Force -ErrorAction SilentlyContinue
 		}
 		catch {
-			Write-Log "[WARNING] Failed to remove old HTTP job: $_" -Color Yellow
+			Write-Log "[WARNING] Failed to remove old HTTP job`: $_" -Color Yellow
 		}
 	}
 	$HttpJobRef.Value = Start-Job -ScriptBlock $httpScriptBlock -ArgumentList $Config
@@ -885,7 +897,7 @@ try {
 				Handle-DNSQuery -ClientEndpoint $clientEndpoint -Query $query
 			}
 			catch {
-				Write-Log "[DEBUG] DNS Receive error: $_" -Color Yellow
+				Write-Log "[DEBUG] DNS Receive error`: $_" -Color Yellow
 			}
 		}
 
@@ -896,7 +908,7 @@ try {
 				Write-Log "[DEBUG] Received DHCP packet from $($clientEndpoint.Address):$($clientEndpoint.Port), length: $($packet.Length)" -Color Yellow
 				$packetHex = [BitConverter]::ToString($packet).Replace('-', ' ')
 				Write-Log "[DEBUG] DHCP Packet XID: $([BitConverter]::ToString($packet[4..7]).Replace('-',''))" -Color Yellow
-				if ($Config.DebugMode) { 
+				if ($Config.DebugMode) {
 					Write-Log "[DEBUG] DHCP Packet Content (Hex): $packetHex" -Color Cyan
 				}
 				if ($packet.Length -ge 240 -and $packet[0] -eq 1) {
@@ -993,7 +1005,7 @@ try {
 				}
 			}
 			catch {
-				Write-Log "[DEBUG] DHCP Receive error: $_" -Color Yellow
+				Write-Log "[DEBUG] DHCP Receive error`: $_" -Color Yellow
 			}
 		}
 
@@ -1068,7 +1080,7 @@ try {
 				}
 			}
 			catch {
-				Write-Log "[ERROR] TFTP handling error: $_" -Color Red
+				Write-Log "[ERROR] TFTP handling error`: $_" -Color Red
 			}
 		}
 
@@ -1079,7 +1091,7 @@ try {
 				Write-Log "[DEBUG] Received ProxyDHCP packet from $($clientEndpoint.Address):$($clientEndpoint.Port), length: $($packet.Length)" -Color Yellow
 				$packetHex = [BitConverter]::ToString($packet).Replace('-', ' ')
 				Write-Log "[DEBUG] ProxyDHCP Packet XID: $([BitConverter]::ToString($packet[4..7]).Replace('-',''))" -Color Yellow
-				if ($Config.DebugMode) { 
+				if ($Config.DebugMode) {
 					Write-Log "[DEBUG] ProxyDHCP Packet Content (Hex): $packetHex" -Color Cyan
 				}
 				if ($packet.Length -ge 240 -and $packet[0] -eq 1) {
@@ -1124,13 +1136,13 @@ try {
 				}
 			}
 			catch {
-				Write-Log "[ERROR] ProxyDHCP handling failed: $_" -Color Red
+				Write-Log "[ERROR] ProxyDHCP handling failed`: $_" -Color Red
 			}
 		}
 	}
 }
 catch {
-	Write-Log "[ERROR] Server Error: $_" -Color Red
+	Write-Log "[ERROR] Server Error`: $_" -Color Red
 }
 finally {
 	try {
@@ -1153,7 +1165,7 @@ finally {
 				}
 			}
 			catch {
-				Write-Log "[ERROR] Error stopping HTTP job gracefully: $_" -Color Yellow
+				Write-Log "[ERROR] Error stopping HTTP job gracefully`: $_" -Color Yellow
 				$jobInfo = Get-Job -Id $httpJob.Id -ErrorAction SilentlyContinue
 				if ($jobInfo) {
 					$processId = $jobInfo.ChildJobs[0].JobStateInfo.ProcessId
@@ -1168,18 +1180,18 @@ finally {
 		Write-Log "[INFO] Sockets (DHCP, TFTP, ProxyDHCP, DNS, HTTP) closed and disposed" -Color White
 	}
 	catch {
-		Write-Log "[WARNING] Error closing sockets: $_" -Color Yellow
+		Write-Log "[WARNING] Error closing sockets`: $_" -Color Yellow
 	}
 	Remove-NetIPAddress -InterfaceAlias "$adapter" -IPAddress $($Config.PXEServerIP) -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
 	netsh interface ipv4 set interface "$adapter" dhcpstaticipcoexistence=disabled | Out-Null
-    try {
+	try {
 		Set-Variable ProgressPreference SilentlyContinue
 		Remove-NetFirewallRule -DisplayName "PXEServer Services*" -ErrorAction SilentlyContinue | Out-Null
 		Set-Variable ProgressPreference Continue
 		Write-Log "[DEBUG] Firewall rules matching 'PXEServer Services*' removed" -Color White
-    } catch {
-        Write-Log "[ERROR] Failed to remove firewall rules: $_" -Color Yellow
-    }
+	} catch {
+		Write-Log "[ERROR] Failed to remove firewall rules`: $_" -Color Yellow
+	}
 	Write-Log "[INFO] Shutdown complete" -Color White
 	Write-Host "`n`nPress any key to exit..." -ForegroundColor White
 	[void][System.Console]::ReadKey($true)
