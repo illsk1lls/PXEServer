@@ -24,9 +24,6 @@ The following components are included within the script:<br>
 
 All are required for the full PXE boot process. (Except DNS during SecureBoot sessions) <br> 
 
-PXEServer requires the firewall to be DISABLED, it will do this for you.<br> 
-(Ensure to take appropriate precautions as needed)<br> 
-
 MOUNT YOUR WINPE ISO AND COPY ALL FILES TO C:\PXE\ <br> 
 (THIS HAS BEEN TESTED USING WIN10PESE AND WIN10XPE BOOTABLE ISO's)<br>
 
