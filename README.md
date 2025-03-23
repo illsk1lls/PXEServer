@@ -44,12 +44,14 @@ Win10XPE can be found here: <a href="https://github.com/ChrisRfr/Win10XPE">https
 ------------------------------------<br> 
 
 This is a work in progress and proof of concept.. please don't take it too seriously ;P<br> 
-NOTE: If the program is forcibly closed while the Http background job is running, the background process will remain open,<br>
-for now either restart the server and close it properly, or manually close the background powershell processes using task manager<br>
+NOTE: If the script is not closed properly (e.g. by pressing the Esc key), the background HTTP job will remain open<br>
+Relaunching the script will close any stale HTTP background jobs<br>
 
 Stability updates and fixes coming soon. And any help is appreciated/welcomed.
 
 Powered by iPXE (https://github.com/ipxe/ipxe)
+
+------------------------------------<br> 
 
 SECUREBOOT INSTRUCTIONS:
 SecureBoot compatibility can be enabled, but provides less NIC support(drivers). During testing, if network boot would fail due to limited drivers, the client would create an error along the lines of x/xxx/xxRtk.xxxx.cp (in this case indicating an issue with some Realtek drivers) somewhere on the screen immediately after attempting DHCP. In cases where boot is not completing disable SecureBoot on the clients and turn SecureBoot Compatibility support off on the server.
