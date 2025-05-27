@@ -34,7 +34,7 @@ Win10XPE can be found here: <a href="https://github.com/ChrisRfr/Win10XPE">https
 
 - Run PXEServer.ps1 and network boot!<br> 
 
-- Press Esc to Exit, this will remove PXEServer settings, and RE-ENABLE Windows Firewall on the host machine<br> 
+- Press Esc to Exit, this will remove PXEServer settings, and remove Windows Firewall rules for PXEServer on the host machine<br> 
 
 ------------------------------------<br> 
 
